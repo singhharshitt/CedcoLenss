@@ -1,4 +1,5 @@
 import { analyseReviews } from '../services/analysis/reviewAnalyser.js';
+import { PROMPT_VERSION } from '../services/analysis/prompts.js';
 import { LlmNotConfiguredError, LlmPermanentError } from '../services/llm/errors.js';
 
 /**
@@ -16,6 +17,8 @@ export function createProcessingQueue({ datasets, reviews, cache, llm, batchSize
   const queue = [];
   let running = false;
   let idleWaiters = [];
+  // Cache entries are only reused when produced by the same model and prompt version.
+  const analyserId = `${llm.modelName}@${PROMPT_VERSION}`;
 
   async function processDataset(datasetId) {
     const startedAt = Date.now();
@@ -27,7 +30,7 @@ export function createProcessingQueue({ datasets, reviews, cache, llm, batchSize
       const toAnalyse = [];
       let cacheHits = 0;
       for (const review of pending) {
-        const cached = cache.get(review.text_hash);
+        const cached = cache.get(review.text_hash, analyserId);
         if (cached) {
           reviews.saveAnalysis(review.id, cached, 'cache');
           cacheHits++;
@@ -55,7 +58,7 @@ export function createProcessingQueue({ datasets, reviews, cache, llm, batchSize
           const outcome = outcomes.get(review.id);
           if (outcome.ok) {
             reviews.saveAnalysis(review.id, outcome.analysis, 'ai');
-            cache.put(review.text_hash, outcome.analysis, llm.modelName);
+            cache.put(review.text_hash, outcome.analysis, analyserId);
           } else {
             reviews.markFailed(review.id, outcome.reason);
           }

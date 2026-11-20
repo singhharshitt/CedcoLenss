@@ -75,6 +75,23 @@ describe('upload -> analysis -> dashboard', () => {
     expect(status.counts).toMatchObject({ cacheHits: 28, aiCalls: 0, sentToAi: 0, analysed: 28 });
   });
 
+  it('does not reuse cache entries produced by a different model', async () => {
+    await uploadAndWait(ctx);
+    const other = createApp({ db: ctx.db, llm: createFakeLlm(), config: testConfig, logger: silentLogger });
+    const better = createFakeLlm();
+    better.modelName = 'better-model';
+    const betterApp = createApp({ db: ctx.db, llm: better, config: testConfig, logger: silentLogger });
+
+    // Same model: served from cache.
+    const sameId = await uploadAndWait(other);
+    expect((await request(other.app).get(`/api/datasets/${sameId}/status`)).body.data.counts.cacheHits).toBe(28);
+    // Different model: analysed again.
+    const newId = await uploadAndWait(betterApp);
+    const status = (await request(betterApp.app).get(`/api/datasets/${newId}/status`)).body.data;
+    expect(status.counts).toMatchObject({ cacheHits: 0, sentToAi: 28 });
+    expect(better.calls.length).toBe(6);
+  });
+
   it('dashboard counts unique analysed reviews and computes rating agreement without null ratings', async () => {
     const id = await uploadAndWait(ctx);
     const dash = (await request(ctx.app).get(`/api/datasets/${id}/dashboard`)).body.data;
