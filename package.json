@@ -1,0 +1,19 @@
+{
+  "name": "reviewlens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ReviewLens - AI review insights (CEDCOSS technical assessment)",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -k -n api,web -c blue,magenta \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "db:init": "npm --prefix server run db:init",
+    "test": "npm --prefix server test && npm --prefix client test",
+    "test:server": "npm --prefix server test",
+    "test:client": "npm --prefix client test",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}
