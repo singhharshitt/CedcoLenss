@@ -90,6 +90,15 @@ export function ratingAgreement(analysed) {
   };
 }
 
+/** How often each topic appears, split by sentiment (unique analysed reviews). */
+export function topicBreakdown(analysed) {
+  return TOPICS.map((topic) => {
+    const withTopic = analysed.filter((r) => r.topics.includes(topic));
+    const counts = Object.fromEntries(SENTIMENTS.map((s) => [s, withTopic.filter((r) => r.sentiment === s).length]));
+    return { topic, label: TOPIC_LABELS[topic], total: withTopic.length, ...counts };
+  }).filter((t) => t.total > 0);
+}
+
 export function dataQuality(reviews) {
   const withIssue = (issue) => reviews.filter((r) => r.dataIssues.includes(issue)).length;
   return {
@@ -155,6 +164,7 @@ export function buildDashboard(datasetRow, reviews) {
     sentiment,
     topComplaints: topThemes(analysed, 'negative'),
     topPraises: topThemes(analysed, 'positive'),
+    topicBreakdown: topicBreakdown(analysed),
     ratingAgreement: { ...agreement, mismatchReviews },
     dataQuality: dataQuality(reviews),
     usage: {
