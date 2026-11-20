@@ -1,0 +1,21 @@
+# `docker compose up --build` -> http://localhost:4000
+# LLM settings are read from the repo-root .env file (copy .env.example first).
+services:
+  reviewlens:
+    build: .
+    ports:
+      - "4000:4000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_PATH: /data/reviewlens.db
+      CORS_ORIGINS: http://localhost:4000
+    volumes:
+      - reviewlens-data:/data   # SQLite database (datasets, reviews, AI cache) survives restarts
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets the container reach an Ollama running on the host
+    restart: unless-stopped
+
+volumes:
+  reviewlens-data:

@@ -21,3 +21,6 @@ client/playwright-report/
 
 .DS_Store
 Thumbs.db
+
+# Local tooling
+.claude/

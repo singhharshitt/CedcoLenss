@@ -31,7 +31,8 @@ export function createApp({ db, llm, config, logger = console }) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
-  app.use(helmet());
+  // Default Helmet headers, minus upgrade-insecure-requests so the app also works over plain HTTP (e.g. Docker on a LAN IP).
+  app.use(helmet({ contentSecurityPolicy: { directives: { upgradeInsecureRequests: null } } }));
   app.use('/api', cors({ origin: config.corsOrigins }));
   app.use(express.json({ limit: '10kb' }));
 
