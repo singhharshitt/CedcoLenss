@@ -1,0 +1,23 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# SQLite data (contains uploaded customer reviews)
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Test artefacts
+client/test-results/
+client/playwright-report/
+
+.DS_Store
+Thumbs.db
