@@ -1,26 +1,36 @@
+# Dependencies
 node_modules/
+
+# Build and test output
 dist/
 coverage/
-*.log
+client/test-results/
+client/playwright-report/
+**/.vite/
+*.tsbuildinfo
 
-# Secrets
+# Environment and secrets
 .env
 .env.*
 !.env.example
 
-# SQLite data (contains uploaded customer reviews)
+# Runtime data (contains uploaded customer reviews)
 data/
 *.db
+*.db-*
 *.db-journal
-*.db-wal
-*.db-shm
 
-# Test artefacts
-client/test-results/
-client/playwright-report/
+# Logs and package-manager files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
+# Local tooling and editor files
+**/.cache/
+.eslintcache
 .DS_Store
 Thumbs.db
-
-# Local tooling
+.idea/
 .claude/
