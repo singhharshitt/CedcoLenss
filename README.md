@@ -56,7 +56,7 @@ You upload a CSV in the browser. The backend cleans it, removes duplicates, chec
 - **Editable replies:** edit or write a reply by hand, save it on the server ("Edited by you"), and copy it in one click.
 - **Export:** a CSV of every row with its cleaning flags, analysis, model and reply (spreadsheet-formula-safe), and a printable **PDF report** (`/report/:id`, saved through the browser's print dialog).
 - **Graceful shutdown:** on Ctrl+C / SIGTERM the batch in flight is finished and saved, no new batch starts, and the dataset resumes on the next start.
-- **Docker:** `docker compose up --build` runs the whole app on one port, with SQLite in a persistent volume. See [Docker](#docker) for its verification status.
+- **Docker:** `docker compose up --build` runs two containers, nginx serving the UI and proxying `/api` to the Express API, with SQLite in a persistent volume. Verified end to end; see [Docker](#docker).
 - Live deployment: **not done.** There is no public URL.
 
 ### Other things the UI does
@@ -435,15 +435,41 @@ End-to-end browser automation (Playwright) is **not** included. The full flow wa
 ## Docker
 
 ```bash
-cp .env.example .env       # set your LLM provider
-docker compose up --build  # → http://localhost:4000
+cp .env.example .env            # set your LLM key(s)
+docker compose up --build -d    # → http://localhost:8088
+docker compose logs -f server   # watch the API
+docker compose down             # stop (data is kept)
 ```
 
-- One container runs Express. It serves both the API and the built React app, so there is no CORS setup and the browser still never sees the key.
-- SQLite lives in the named volume `reviewlens-data`, mounted at `/data`, so data survives restarts.
-- To use an Ollama running on the host, set `LLM_BASE_URL=http://host.docker.internal:11434/v1`.
+Use another port with `APP_PORT=9000 docker compose up -d` (PowerShell: `$env:APP_PORT=9000; docker compose up -d`).
 
-> Verification status: the Docker files were written but **`docker compose up` was not run during development** because the Docker daemon was not running on the development machine. The production mode the container uses (`npm run build` + `npm start`, Express serving `client/dist`) *was* verified locally.
+```mermaid
+flowchart LR
+  B["Browser"] -->|":8088"| N["client container<br/>nginx: React build + /api proxy"]
+  N -->|"/api/* (internal network)"| S["server container<br/>Express API"]
+  S --- V[("volume reviewlens-data<br/>SQLite at /data")]
+  S -->|"HTTPS + key"| L["LLM provider(s)"]
+```
+
+| Service | Image / Dockerfile | What it does |
+|---|---|---|
+| `client` | `client/Dockerfile` (Node build → `nginx:1.27-alpine`) | Serves the built app with an SPA fallback, gzip, immutable caching for hashed assets and security headers (CSP, `X-Frame-Options`, `nosniff`). Forwards `/api/*` to the server with 180 s timeouts (AI replies can be slow) and a 3 MB body limit. Published on `APP_PORT` (default 8088). |
+| `server` | `server/Dockerfile` (`node:22-bookworm-slim`, production deps only, non-root `node` user) | The Express API. **Not published**: only nginx can reach it, and the LLM keys from `.env` exist only in this container. |
+
+- **One origin:** the browser only talks to nginx, so no CORS setup is needed and the browser never calls the LLM.
+- **Persistent data:** SQLite lives in the named volume `reviewlens-data` (mounted at `/data`). It survives `docker compose down`, rebuilds and restarts. `docker compose down -v` deletes it.
+- **Health checks:** the server checks `/api/health`, nginx serves `/healthz`, and the client only starts once the server is healthy. Both restart automatically (`unless-stopped`).
+- **Graceful shutdown:** `init: true` forwards `SIGTERM` to Node, and `stop_grace_period: 40s` gives the batch in flight time to be saved. Unfinished datasets resume on the next start.
+- **Secrets:** `.dockerignore` keeps `.env`, local data, `node_modules` and `.git` out of the images. `.env` is read only at runtime via `env_file`.
+- **Ollama on the host:** set `LLM_BASE_URL=http://host.docker.internal:11434/v1`.
+- **One-container alternative:** the root `Dockerfile` builds a single image in which Express serves both the API and the UI on port 4000. It suits single-service hosts such as Render or Railway: `docker build -t reviewlens . && docker run -p 4000:4000 --env-file .env -v reviewlens-data:/data reviewlens`.
+
+> Verified with Docker Desktop 29.8 / Compose v5.5:
+> - **Build and start:** both images build and both containers report healthy.
+> - **Real upload through nginx (Gemini):** `reviews.csv` analysed 28/28 with 0 failures and AI themes generated. R012 came back `negative` with `needs_reply: true`.
+> - **Persistence:** after `docker compose down` and `up`, the dataset and all 28 cached analyses were still there.
+> - **Graceful shutdown:** `docker compose stop server` during processing logged "paused for shutdown after 5 of 29 reviews", and the dataset resumed and completed 29/29 after `start`.
+> - **Not run:** the one-container `Dockerfile` was not re-run in this pass.
 
 ## Screenshots
 
@@ -466,6 +492,6 @@ These are real screenshots of the running application. They were captured during
 - **PDF export uses the browser's print dialog** ("Save as PDF"), not a server-generated file.
 - **In-process queue, single instance.** Fine for this scale, and a restart resumes unfinished datasets. Multiple servers would need a shared job queue (for example BullMQ/Redis) and a server database (for example Postgres).
 - **No authentication or multi-tenancy;** every visitor sees all datasets.
-- **No Playwright E2E tests;** `docker compose up` not run during development; no live deployment.
+- **No Playwright E2E tests** and no live deployment.
 - Products are identified by name within a dataset.
 - **Possible next steps:** date-range trends, embedding-based duplicate and theme detection, and streaming progress via Server-Sent Events instead of polling.

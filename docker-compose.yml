@@ -1,20 +1,51 @@
-# `docker compose up --build` -> http://localhost:4000
-# LLM settings are read from the repo-root .env file (copy .env.example first).
+# ReviewLens: two containers.
+#
+#   cp .env.example .env          # set your LLM key(s)
+#   docker compose up --build -d  # → http://localhost:8088
+#
+#   client  nginx: serves the built React app and forwards /api to the server (published on APP_PORT, default 8088)
+#   server  Express API + SQLite (internal only, never published; the LLM keys stay here)
+#
+# Data (datasets, reviews, AI cache, themes) lives in the `reviewlens-data` volume and survives
+# `docker compose down` / rebuilds. `docker compose down -v` deletes it.
+
 services:
-  reviewlens:
-    build: .
-    ports:
-      - "4000:4000"
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: reviewlens-server
+    init: true                 # tini as PID 1: forwards SIGTERM so the graceful shutdown runs
     env_file:
       - path: .env
         required: false
     environment:
+      NODE_ENV: production
+      PORT: 4000
       DATABASE_PATH: /data/reviewlens.db
-      CORS_ORIGINS: http://localhost:4000
+      # The browser only ever talks to nginx on the same origin, so CORS is not used in this setup.
+      CORS_ORIGINS: http://localhost:${APP_PORT:-8088}
     volumes:
-      - reviewlens-data:/data   # SQLite database (datasets, reviews, AI cache) survives restarts
+      - reviewlens-data:/data
+    expose:
+      - "4000"
     extra_hosts:
-      - "host.docker.internal:host-gateway"   # lets the container reach an Ollama running on the host
+      - "host.docker.internal:host-gateway"   # reach an Ollama running on the host machine
+    stop_grace_period: 40s     # > SHUTDOWN_TIMEOUT_MS (30 s): let the AI batch in flight be saved
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    image: reviewlens-client
+    environment:
+      API_UPSTREAM: server:4000
+    ports:
+      - "${APP_PORT:-8088}:80"
+    depends_on:
+      server:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
