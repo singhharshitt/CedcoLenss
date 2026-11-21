@@ -1,0 +1,17 @@
+﻿457b6ed 2026-11-21 23:04:28 +0530 Harshit <harshitsinghrajput242004@gmail.com> Finalize frontend deployment and API configuration
+9dc28cf 2026-11-21 22:44:14 +0530 Harshit <harshitsinghrajput242004@gmail.com> Prepare deployment configuration and update API client
+75cf239 2026-11-21 22:02:38 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add production Docker deployment configuration
+3830447 2026-11-21 21:09:03 +0530 Harshit <harshitsinghrajput242004@gmail.com> Document fallback LLM configuration
+81a8b40 2026-11-21 21:08:24 +0530 Harshit <harshitsinghrajput242004@gmail.com> Refresh dashboard pages and review interactions
+0953021 2026-11-21 21:08:03 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add shared frontend layout and motion components
+570416d 2026-11-21 20:29:00 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add fallback LLM, insights themes, exports, and reporting- Add configurable fallback LLM provider with cooldown and retry handling- Add AI themes, similarity grouping, usage tracking, and report exports- Add report page and improve dashboard, insights, reviews, replies, and settings UI- Improve CSV validation, processing progress, caching, and API responses- Add feature, fallback, API, retry, and client test coverage- Update environment configuration and README documentation
+ed4f8dc 2026-11-20 23:28:43 +0530 Harshit <harshitsinghrajput242004@gmail.com> Initialized:first comit
+d6c843d 2026-11-20 22:34:08 +0530 Harshit <harshitsinghrajput242004@gmail.com> Write README: setup, architecture, prompt, injection defence, limits
+5448187 2026-11-20 22:30:34 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add Docker setup and real application screenshots
+a56bf93 2026-11-20 22:28:51 +0530 Harshit <harshitsinghrajput242004@gmail.com> Scope cache reuse to model and prompt version; add client tests
+10fc1a9 2026-11-20 22:28:51 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add dashboard, reviews table, product and AI insight pages
+fa7982b 2026-11-20 22:28:50 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add React client: layout, CSV upload and live processing status
+7ad5bda 2026-11-20 22:14:52 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add REST API and backend test suite
+11edf29 2026-11-20 22:14:52 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add repositories, persistent cache and background processing queue
+4c1b273 2026-11-20 22:14:51 +0530 Harshit <harshitsinghrajput242004@gmail.com> Add LLM provider with backoff and strict analysis validation
+b2b612e 2026-11-20 22:08:32 +0530 Harshit <harshitsinghrajput242004@gmail.com> Initialise ReviewLens: SQLite schema, config and CSV cleaning
