@@ -19,6 +19,8 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
 const SAMPLE_CSV = path.join(REPO_ROOT, 'reviews.csv');
 const CLIENT_DIST = path.join(REPO_ROOT, 'client', 'dist');
+/** Reported by GET /api/health and GET / (read once at start-up). */
+const APP_VERSION = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'server', 'package.json'), 'utf8')).version;
 
 /**
  * Builds the Express app. Dependencies (db, llm provider, config) are passed in
@@ -67,6 +69,7 @@ export function createApp({ db, llm, config, logger = console }) {
     res.json({
       data: {
         status: database === 'ok' ? 'ok' : 'degraded',
+        version: APP_VERSION,
         database,
         llm: {
           configured: llm.isConfigured(),
@@ -107,9 +110,17 @@ export function createApp({ db, llm, config, logger = console }) {
   app.use('/api', notFoundHandler);
 
   // In production the built React app is served by the same server (one port, no CORS).
-  if (fs.existsSync(CLIENT_DIST)) {
-    app.use(express.static(CLIENT_DIST, { index: false }));
-    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+  // `config.clientDist` overrides the location (tests use it to simulate an API-only deployment).
+  const clientDist = config.clientDist ?? CLIENT_DIST;
+  if (fs.existsSync(clientDist)) {
+    app.use(express.static(clientDist, { index: false }));
+    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(clientDist, 'index.html')));
+  } else {
+    // API-only deployment (e.g. Render, with the UI hosted elsewhere): answer in JSON, not an HTML error page.
+    app.get('/', (_req, res) => {
+      res.json({ data: { name: 'ReviewLens API', version: APP_VERSION, health: '/api/health' } });
+    });
+    app.use(notFoundHandler);
   }
 
   app.use(errorHandler);

@@ -258,3 +258,59 @@ describe('live progress and connection test', () => {
     ]);
   });
 });
+
+describe('split deployment (API-only host such as Render)', () => {
+  const apiOnly = (overrides = {}) => setup(createFakeLlm(), { clientDist: '/definitely/not/here', ...overrides });
+
+  it('answers / and unknown routes with JSON instead of an HTML error page', async () => {
+    const ctx = apiOnly();
+    const root = await request(ctx.app).get('/');
+    expect(root.status).toBe(200);
+    expect(root.body.data).toMatchObject({ name: 'ReviewLens API', health: '/api/health' });
+
+    for (const url of ['/health', '/datasets', '/api/api/datasets', '/api/nope']) {
+      const res = await request(ctx.app).get(url);
+      expect(res.status).toBe(404);
+      expect(res.headers['content-type']).toMatch(/json/);
+      expect(res.body.error).toMatchObject({ code: 'NOT_FOUND' });
+    }
+  });
+
+  it('health reports status, version, real DB check and LLM config without secrets', async () => {
+    const ctx = apiOnly();
+    const res = await request(ctx.app).get('/api/health');
+    expect(res.body.data).toMatchObject({ status: 'ok', database: 'ok', llm: { configured: true } });
+    expect(res.body.data.version).toMatch(/^\d+\.\d+\.\d+/);
+    expect(ctx.llm.calls).toHaveLength(0); // the health check never calls the LLM
+  });
+
+  it('CORS allows only the configured frontend origins (incl. preflight and multipart upload)', async () => {
+    const ctx = apiOnly({ corsOrigins: ['https://cedco-lenss.vercel.app'] });
+    const preflight = await request(ctx.app)
+      .options('/api/datasets')
+      .set('Origin', 'https://cedco-lenss.vercel.app')
+      .set('Access-Control-Request-Method', 'POST');
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers['access-control-allow-origin']).toBe('https://cedco-lenss.vercel.app');
+
+    const upload = await request(ctx.app)
+      .post('/api/datasets')
+      .set('Origin', 'https://cedco-lenss.vercel.app')
+      .attach('file', CSV, 'reviews.csv');
+    expect(upload.status).toBe(202);
+    expect(upload.headers['access-control-allow-origin']).toBe('https://cedco-lenss.vercel.app');
+
+    const other = await request(ctx.app).get('/api/health').set('Origin', 'https://evil.example');
+    expect(other.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('returns JSON 404s for a missing dataset and an invalid review id', async () => {
+    const ctx = apiOnly();
+    const missing = await request(ctx.app).get('/api/datasets/999/dashboard');
+    expect(missing.status).toBe(404);
+    expect(missing.body.error.code).toBe('NOT_FOUND');
+    const badId = await request(ctx.app).post('/api/reviews/abc/reply').send({});
+    expect(badId.status).toBe(400);
+    expect((await request(ctx.app).post('/api/reviews/999999/reply').send({})).status).toBe(404);
+  });
+});

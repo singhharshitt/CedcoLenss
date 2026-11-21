@@ -2,7 +2,8 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ApiError, apiRequest } from '../api/client.js';
+import { ApiError, apiRequest, messageForStatus, resolveApiBase } from '../api/client.js';
+import { errorTitle } from '../components/ui.jsx';
 import { toQuery } from '../api/reviewlens.js';
 import { validateCsvFile } from '../components/UploadDialog.jsx';
 import { ReplyPanel } from '../components/ReplyPanel.jsx';
@@ -232,5 +233,55 @@ describe('AI theme cards and usage table', () => {
     expect(screen.getByText('nvidia/nemotron')).toBeInTheDocument();
     expect(screen.getByText('75%')).toBeInTheDocument();
     expect(screen.getByText('25%')).toBeInTheDocument();
+  });
+});
+
+describe('API base URL and error handling for split deployments', () => {
+  it('normalises VITE_API_BASE_URL so the /api prefix is never missing or duplicated', () => {
+    expect(resolveApiBase(undefined)).toBe('');
+    expect(resolveApiBase('')).toBe('');
+    expect(resolveApiBase('https://cedcolens-api.onrender.com')).toBe('https://cedcolens-api.onrender.com');
+    expect(resolveApiBase('https://cedcolens-api.onrender.com/')).toBe('https://cedcolens-api.onrender.com');
+    expect(resolveApiBase(' https://cedcolens-api.onrender.com/api/ ')).toBe('https://cedcolens-api.onrender.com');
+  });
+
+  it('explains a non-API 404 (e.g. a static host page) instead of a bare status', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('The page could not be found', { status: 404, headers: { 'Content-Type': 'text/plain' } }),
+    );
+    const error = await apiRequest('/api/datasets').catch((e) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(404);
+    expect(error.url).toBe('/api/datasets');
+    expect(error.message).toMatch(/API resource was not found/);
+    expect(errorTitle(error)).toBe('Not found');
+  });
+
+  it('keeps the server message when the API sends its JSON error envelope', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({ error: { code: 'NOT_FOUND', message: 'Dataset not found.' } }, 404));
+    await expect(apiRequest('/api/datasets/9/dashboard')).rejects.toMatchObject({ status: 404, message: 'Dataset not found.' });
+  });
+
+  it('maps every relevant status to a helpful message and title', () => {
+    expect(messageForStatus(400)).toMatch(/invalid/i);
+    expect(messageForStatus(422)).toMatch(/invalid/i);
+    expect(messageForStatus(401)).toMatch(/not authorised/i);
+    expect(messageForStatus(403)).toMatch(/forbidden/i);
+    expect(messageForStatus(429)).toMatch(/too many requests/i);
+    expect(messageForStatus(500)).toMatch(/server had a problem/i);
+    expect(messageForStatus(503)).toMatch(/unavailable or still starting/i);
+    expect(errorTitle({ status: 0 })).toBe('Cannot reach the server');
+    expect(errorTitle({ status: 503 })).toBe('Backend unavailable');
+    expect(errorTitle({ status: 0, code: 'TIMEOUT' })).toBe('The server is taking too long');
+  });
+
+  it('Retry in the error panel repeats the real request', async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+    const { ErrorState } = await import('../components/ui.jsx');
+    render(<ErrorState error={new ApiError(messageForStatus(404), { status: 404 })} onRetry={onRetry} />);
+    expect(screen.getByText('HTTP 404')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

@@ -157,12 +157,27 @@ export function EmptyState({ title, description, action }) {
   );
 }
 
+/** Short headline for an ApiError, by HTTP status (0 = network/CORS/timeout). */
+export function errorTitle(error) {
+  const status = error?.status ?? 0;
+  if (error?.code === 'TIMEOUT') return 'The server is taking too long';
+  if (status === 0) return 'Cannot reach the server';
+  if (status === 404) return 'Not found';
+  if (status === 400 || status === 422) return 'Invalid request';
+  if (status === 401 || status === 403) return 'Access denied';
+  if (status === 429) return 'Too many requests';
+  if (status === 502 || status === 503 || status === 504) return 'Backend unavailable';
+  if (status >= 500) return 'Server error';
+  return 'Something went wrong';
+}
+
 export function ErrorState({ error, onRetry }) {
   return (
     <div role="alert" className="mx-auto flex max-w-md flex-col items-center rounded-2xl border border-rose-200 bg-rose-50 px-6 py-8 text-center">
       <AlertTriangle className="mb-2 size-6 text-rose-600" strokeWidth={1.75} aria-hidden />
-      <p className="font-display text-lg font-semibold uppercase tracking-wide text-rose-800">Something went wrong</p>
+      <p className="font-display text-lg font-semibold uppercase tracking-wide text-rose-800">{errorTitle(error)}</p>
       <p className="mt-1 text-sm text-rose-700">{error?.message ?? 'Unknown error'}</p>
+      {error?.status ? <p className="mt-2 font-mono text-xs text-rose-600">HTTP {error.status}</p> : null}
       {onRetry && (
         <Button variant="secondary" size="sm" icon={RotateCw} className="mt-4" onClick={onRetry}>
           Try again
