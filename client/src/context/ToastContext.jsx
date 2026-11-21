@@ -31,18 +31,20 @@ export function ToastProvider({ children }) {
           <div
             key={t.id}
             role={t.type === 'error' ? 'alert' : 'status'}
-            className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-lg"
+            className={`on-navy pointer-events-auto flex w-full max-w-sm animate-rise items-start gap-3 rounded-xl border-l-4 bg-navy-900 p-4 text-sm text-cream shadow-lg ${
+              t.type === 'error' ? 'border-rose-500' : 'border-brand-300'
+            }`}
           >
             {t.type === 'error' ? (
-              <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-500" aria-hidden />
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-rose-200" aria-hidden />
             ) : (
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" aria-hidden />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-brand-300" aria-hidden />
             )}
-            <p className="flex-1 text-slate-700">{t.message}</p>
+            <p className="flex-1 leading-relaxed text-navy-50">{t.message}</p>
             <button
               type="button"
               onClick={() => dismiss(t.id)}
-              className="rounded text-slate-400 hover:text-slate-600"
+              className="rounded text-navy-300 hover:text-cream"
               aria-label="Dismiss notification"
             >
               <X className="size-4" />
