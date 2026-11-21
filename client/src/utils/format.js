@@ -10,10 +10,26 @@ export const TOPIC_LABELS = {
 export const TOPICS = Object.keys(TOPIC_LABELS);
 export const SENTIMENTS = ['positive', 'neutral', 'negative'];
 
+/**
+ * Sentiment colours come from the brand palette: ocean navy = positive,
+ * sand = neutral, burnt sunset = negative (the thing that needs attention).
+ * Keep in sync with the tokens in index.css.
+ */
 export const SENTIMENT_STYLES = {
-  positive: { label: 'Positive', color: '#10b981', badge: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' },
-  neutral: { label: 'Neutral', color: '#94a3b8', badge: 'bg-slate-100 text-slate-700 ring-slate-500/20' },
-  negative: { label: 'Negative', color: '#f43f5e', badge: 'bg-rose-50 text-rose-700 ring-rose-600/20' },
+  positive: { label: 'Positive', color: '#263f70', badge: 'bg-navy-50 text-navy-700 ring-navy-200' },
+  neutral: { label: 'Neutral', color: '#c4b59d', badge: 'bg-slate-100 text-slate-700 ring-slate-300' },
+  negative: { label: 'Negative', color: '#e0782f', badge: 'bg-brand-50 text-brand-700 ring-brand-200' },
+};
+
+/** Chart tokens (Recharts takes plain values, not classes). */
+export const CHART = {
+  grid: '#e8dfd0',
+  axis: '#6e6862',
+  cursor: '#fff5e5',
+  navy: '#263f70',
+  sunset: '#f5bd76',
+  amber: '#e99a42',
+  font: "'DM Sans', ui-sans-serif, system-ui, sans-serif",
 };
 
 export const STATUS_LABELS = {

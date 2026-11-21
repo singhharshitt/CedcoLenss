@@ -4,7 +4,7 @@ import { useDatasetContext } from '../context/DatasetContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { useHealth, useRetryFailed, useTestLlm } from '../hooks/queries.js';
 import { formatBytes, formatDateTime, formatDuration, isActiveStatus } from '../utils/format.js';
-import { Button, Card, EmptyState, ErrorState, LoadingState, StatusBadge } from '../components/ui.jsx';
+import { Button, Card, EmptyState, ErrorState, LoadingState, StatusBadge, PageHeader } from '../components/ui.jsx';
 
 function HealthRow({ label, ok, detail }) {
   return (
@@ -69,11 +69,8 @@ export function SettingsPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-500">System status, AI configuration and upload history.</p>
-      </div>
+    <div className="stagger space-y-6">
+      <PageHeader eyebrow="System" title="Settings" description="System status, AI configuration and upload history." />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="System status" description="Live from GET /api/health">
@@ -82,7 +79,7 @@ export function SettingsPage() {
           ) : health.isError ? (
             <ErrorState error={health.error} onRetry={health.refetch} />
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-200/70">
               <HealthRow label="API server" ok detail="Reachable" />
               <HealthRow label="Database (SQLite)" ok={health.data.database === 'ok'} detail={health.data.database === 'ok' ? 'Connected' : 'Error'} />
               <HealthRow
@@ -129,9 +126,9 @@ export function SettingsPage() {
         {datasets.length === 0 ? (
           <EmptyState title="No uploads yet" />
         ) : (
-          <div className="relative -mx-5 -my-5 overflow-x-auto">
+          <div className="relative -mx-5 -my-5 sm:-mx-6 sm:-my-6 overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="border-b border-slate-200 bg-slate-100/80 text-xs font-semibold text-slate-600">
                 <tr>
                   {['Dataset', 'Uploaded', 'Status', 'Rows', 'Analysed', 'Failed', 'AI calls', 'Cache hits', 'Time', ''].map((h) => (
                     <th key={h} scope="col" className="px-4 py-2.5 font-medium">
@@ -140,7 +137,7 @@ export function SettingsPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-200/70">
                 {datasets.map((d) => (
                   <tr key={d.id} className={d.id === selectedId ? 'bg-brand-50/40' : ''}>
                     <td className="px-4 py-3 font-medium text-slate-900">

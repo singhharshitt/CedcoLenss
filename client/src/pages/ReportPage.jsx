@@ -5,13 +5,14 @@ import { useDashboard, useReviews, useThemes } from '../hooks/queries.js';
 import { ISSUE_LABELS, SENTIMENT_STYLES, formatDateTime, formatDuration, formatPercent } from '../utils/format.js';
 import { ThemeGroups } from '../components/aiThemes.jsx';
 import { ErrorState, LoadingState } from '../components/ui.jsx';
+import { WaveDivider } from '../components/waves.jsx';
 
 const PURPOSE_LABELS = { analysis: 'Review analysis', reply: 'Suggested replies', themes: 'AI themes' };
 
 function Section({ title, children }) {
   return (
     <section className="break-inside-avoid-page space-y-3 border-t border-slate-200 pt-5">
-      <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+      <h2 className="display text-2xl uppercase text-navy-900">{title}</h2>
       {children}
     </section>
   );
@@ -19,10 +20,10 @@ function Section({ title, children }) {
 
 function Metric({ label, value, hint }) {
   return (
-    <div className="rounded-lg border border-slate-200 px-3 py-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="text-xl font-semibold tabular-nums text-slate-900">{value}</p>
-      {hint && <p className="text-[11px] text-slate-500">{hint}</p>}
+    <div className="rounded-xl border border-slate-200 px-4 py-3">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="display mt-1 text-3xl tabular-nums text-navy-900">{value}</p>
+      {hint && <p className="text-xs text-slate-500">{hint}</p>}
     </div>
   );
 }
@@ -41,7 +42,12 @@ export function ReportPage() {
 
   const ready = dashboard.data && replies.data && !themes.isLoading;
   useEffect(() => {
-    if (dashboard.data) document.title = `ReviewLens report – ${dashboard.data.dataset.filename}`;
+    if (!dashboard.data) return undefined;
+    const previous = document.title;
+    document.title = `ReviewLens report – ${dashboard.data.dataset.filename}`;
+    return () => {
+      document.title = previous;
+    };
   }, [dashboard.data]);
 
   if (!valid) return <ErrorState error={new Error('Invalid dataset id.')} />;
@@ -53,29 +59,30 @@ export function ReportPage() {
 
   return (
     <div className="min-h-screen bg-slate-100 print:bg-white">
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-3 print:hidden">
-        <p className="text-sm text-slate-600">
+      <div className="on-navy sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 bg-navy-900 px-6 py-3 print:hidden">
+        <p className="text-sm text-navy-100">
           Click <strong>Save as PDF</strong>, then pick “Save as PDF” as the printer in the dialog.
         </p>
         <button
           type="button"
           onClick={() => window.print()}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand-300 px-4 text-sm font-semibold text-navy-900 shadow-sm transition-colors hover:bg-brand-400"
         >
           <Printer className="size-4" aria-hidden /> Save as PDF
         </button>
       </div>
 
-      <main className="report mx-auto my-6 max-w-[210mm] space-y-6 bg-white p-10 shadow-sm print:my-0 print:max-w-none print:p-0 print:shadow-none">
+      <main className="report relative mx-auto my-8 max-w-[210mm] space-y-6 overflow-hidden rounded-2xl bg-white p-10 shadow-md print:my-0 print:max-w-none print:rounded-none print:p-0 print:shadow-none">
         <header className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">ReviewLens · AI review insights</p>
-          <h1 className="text-2xl font-semibold text-slate-900">{dataset.filename}</h1>
+          <p className="eyebrow text-brand-700">ReviewLens · AI review insights</p>
+          <h1 className="display text-5xl uppercase text-navy-900">{dataset.filename}</h1>
           <p className="text-sm text-slate-500">
             Uploaded {formatDateTime(dataset.createdAt)} · report generated {formatDateTime(new Date().toISOString())}
           </p>
         </header>
+        <WaveDivider />
 
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 print:grid-cols-5">
           <Metric label="Analysed" value={summary.analysedReviews} hint="unique reviews" />
           <Metric label="Positive" value={formatPercent(summary.positive.percentage)} hint={`${summary.positive.count} reviews`} />
           <Metric label="Neutral" value={formatPercent(summary.neutral.percentage)} hint={`${summary.neutral.count} reviews`} />
@@ -106,11 +113,11 @@ export function ReportPage() {
           <Section title="Specific themes (AI)">
             <div className="grid grid-cols-2 gap-6">
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-rose-700">Complaints</h3>
+                <h3 className="eyebrow mb-2 text-brand-700">Complaints</h3>
                 <ThemeGroups kind="complaints" themes={aiThemes.complaints} compact />
               </div>
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-700">Praises</h3>
+                <h3 className="eyebrow mb-2 text-navy-700">Praises</h3>
                 <ThemeGroups kind="praises" themes={aiThemes.praises} compact />
               </div>
             </div>
@@ -120,11 +127,11 @@ export function ReportPage() {
         <Section title="Top topics">
           <div className="grid grid-cols-2 gap-6 text-sm">
             {[
-              ['Complaints', topComplaints, 'text-rose-700'],
-              ['Praises', topPraises, 'text-emerald-700'],
+              ['Complaints', topComplaints, 'text-brand-700'],
+              ['Praises', topPraises, 'text-navy-700'],
             ].map(([label, list, color]) => (
               <div key={label}>
-                <h3 className={`mb-2 text-xs font-semibold uppercase tracking-wide ${color}`}>{label}</h3>
+                <h3 className={`eyebrow mb-2 ${color}`}>{label}</h3>
                 {list.length === 0 ? (
                   <p className="text-slate-500">None.</p>
                 ) : (

@@ -61,12 +61,12 @@ export function ReplyPanel({ review }) {
   };
 
   return (
-    <div className="rounded-xl border border-brand-100 bg-brand-50/50 p-4">
+    <div className="relative overflow-hidden rounded-2xl border border-navy-100 bg-white p-5 shadow-sm">
       <div className="mb-2 flex items-center gap-2">
-        <Sparkles className="size-4 text-brand-600" aria-hidden />
-        <h3 className="text-sm font-semibold text-slate-900">Suggested reply</h3>
+        <Sparkles className="size-4 text-brand-500" aria-hidden />
+        <h3 className="font-display text-lg font-semibold uppercase tracking-wide text-navy-900">Suggested reply</h3>
         {reply && edited && !editing && (
-          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700">Edited by you</span>
+          <span className="rounded-md bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800">Edited by you</span>
         )}
       </div>
 
@@ -82,9 +82,9 @@ export function ReplyPanel({ review }) {
             maxLength={MAX_REPLY_LENGTH}
             rows={6}
             autoFocus
-            className="w-full resize-y rounded-lg bg-white p-3 text-sm leading-relaxed text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="w-full resize-y rounded-xl bg-cream p-4 text-sm leading-relaxed text-slate-900 ring-1 ring-brand-200 transition-shadow focus:outline-none focus:ring-2 focus:ring-navy-600"
           />
-          <div className="mt-1 text-right text-[11px] tabular-nums text-slate-500">
+          <div className="mt-1 text-right text-xs tabular-nums text-slate-500">
             {draft.length}/{MAX_REPLY_LENGTH}
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -101,7 +101,7 @@ export function ReplyPanel({ review }) {
         </>
       ) : reply ? (
         <>
-          <p className="whitespace-pre-wrap rounded-lg bg-white p-3 text-sm leading-relaxed text-slate-700 ring-1 ring-slate-200" aria-live="polite">
+          <p className="whitespace-pre-wrap rounded-xl border-l-4 border-navy-700 bg-navy-50 p-4 text-sm leading-relaxed text-slate-900" aria-live="polite">
             {reply}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">

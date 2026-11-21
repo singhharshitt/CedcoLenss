@@ -7,7 +7,8 @@ import { formatPercent } from '../utils/format.js';
 import { RatingAgreementCard, SentimentChart, StatCard, ThemeList } from '../components/insights.jsx';
 import { ReviewDrawer } from '../components/ReviewDrawer.jsx';
 import { Welcome } from './OverviewPage.jsx';
-import { Button, Card, EmptyState, ErrorState, LoadingState, SentimentBadge, SentimentBar, TopicChip } from '../components/ui.jsx';
+import { WaveLines } from '../components/waves.jsx';
+import { Button, Card, EmptyState, ErrorState, LoadingState, SentimentBadge, SentimentBar, TopicChip, PageHeader } from '../components/ui.jsx';
 
 export function ProductsPage() {
   const { selectedId, isProcessing, datasets, datasetsLoading } = useDatasetContext();
@@ -17,11 +18,8 @@ export function ProductsPage() {
   if (datasets.length === 0) return <Welcome />;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Products</h1>
-        <p className="text-sm text-slate-500">Sentiment, top issues and reply workload for each product.</p>
-      </div>
+    <div className="stagger space-y-6">
+      <PageHeader eyebrow="Per product" title="Products" description="Sentiment, top issues and reply workload for each product." />
       {query.isLoading ? (
         <LoadingState label="Loading products…" />
       ) : query.isError ? (
@@ -39,29 +37,30 @@ export function ProductsPage() {
               <Link
                 key={p.id}
                 to={`/products/${p.id}`}
-                className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-300 hover:shadow"
+                className="lift group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 pb-14 shadow-sm hover:border-navy-300"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <h2 className="font-semibold text-slate-900 group-hover:text-brand-700">{p.name}</h2>
-                  <ArrowRight className="size-4 shrink-0 text-slate-300 group-hover:text-brand-500" aria-hidden />
+                <WaveLines className="text-brand-300" />
+                <div className="relative flex items-start justify-between gap-2">
+                  <h2 className="display text-2xl uppercase text-navy-900 transition-colors group-hover:text-navy-600">{p.name}</h2>
+                  <ArrowRight className="size-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-600" aria-hidden />
                 </div>
                 <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-                  <Star className="size-3 fill-amber-400 text-amber-400" aria-hidden />
+                  <Star className="size-3 fill-brand-500 text-brand-500" aria-hidden />
                   {p.averageRating ?? '—'} avg · {p.analysedReviews} analysed of {p.totalRows} rows
                 </p>
                 <div className="mt-4">
                   <SentimentBar sentiment={p.sentiment} />
                   <div className="mt-1.5 flex justify-between text-xs text-slate-500">
-                    <span className="text-emerald-700">{formatPercent(positive.percentage)} positive</span>
-                    <span className="text-rose-700">{formatPercent(negative.percentage)} negative</span>
+                    <span className="font-medium text-navy-700">{formatPercent(positive.percentage)} positive</span>
+                    <span className="font-medium text-brand-700">{formatPercent(negative.percentage)} negative</span>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
                   <span className="flex items-center gap-1">
-                    <MessageCircleReply className="size-3.5 text-amber-600" aria-hidden /> {p.needsReply} need reply
+                    <MessageCircleReply className="size-3.5 text-brand-600" aria-hidden /> {p.needsReply} need reply
                   </span>
                   <span className="flex items-center gap-1">
-                    <AlertTriangle className="size-3.5 text-amber-500" aria-hidden /> {p.mismatches} rating mismatch{p.mismatches === 1 ? '' : 'es'}
+                    <AlertTriangle className="size-3.5 text-brand-600" aria-hidden /> {p.mismatches} rating mismatch{p.mismatches === 1 ? '' : 'es'}
                   </span>
                 </div>
                 {p.topComplaints[0] && (
@@ -107,12 +106,13 @@ export function ProductDetailPage() {
   const bySentiment = Object.fromEntries(p.sentiment.map((s) => [s.sentiment, s]));
 
   return (
-    <div className="space-y-6">
+    <div className="stagger space-y-6">
       {back}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">{p.name}</h1>
-          <p className="text-sm text-slate-500">
+          <p className="eyebrow text-brand-700">Product</p>
+          <h1 className="display mt-1 text-4xl uppercase text-navy-900 sm:text-5xl">{p.name}</h1>
+          <p className="mt-2 max-w-2xl text-base text-slate-600">
             {p.analysedReviews} unique analysed reviews · {p.totalRows} rows in file
           </p>
         </div>
@@ -145,12 +145,12 @@ export function ProductDetailPage() {
           {p.mismatchReviews.length === 0 ? (
             <EmptyState title="No mismatches" description="Every rated review agrees with its sentiment." />
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-200/70">
               {p.mismatchReviews.map((m) => (
                 <li key={m.id} className="py-2.5 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium text-slate-900">{m.reviewId}</span>
-                    <span className="text-amber-500">{'★'.repeat(m.rating)}</span>
+                    <span className="text-brand-500">{'★'.repeat(m.rating)}</span>
                     <span className="text-xs text-slate-500">expected {m.expected}, text is</span>
                     <SentimentBadge sentiment={m.sentiment} />
                   </div>
@@ -165,7 +165,7 @@ export function ProductDetailPage() {
           {p.replyQueue.length === 0 ? (
             <EmptyState icon={MessageCircleReply} title="No replies needed" />
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-200/70">
               {p.replyQueue.map((r) => (
                 <li key={r.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                   <div className="min-w-0 flex-1">

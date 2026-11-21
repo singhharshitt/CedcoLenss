@@ -3,25 +3,37 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { Activity, Clock, Cpu, Database, XCircle, Zap } from 'lucide-react';
 import { useDatasetContext } from '../context/DatasetContext.jsx';
 import { useDashboard } from '../hooks/queries.js';
-import { ISSUE_LABELS, SENTIMENT_STYLES, STATUS_LABELS, formatDuration } from '../utils/format.js';
-import { RatingAgreementCard, StatCard, ThemeList } from '../components/insights.jsx';
+import { CHART, ISSUE_LABELS, SENTIMENT_STYLES, STATUS_LABELS, formatDuration } from '../utils/format.js';
+import { usePrefersReducedMotion } from '../utils/motion.js';
+import { CHART_TOOLTIP, RatingAgreementCard, StatCard, ThemeList } from '../components/insights.jsx';
 import { AiThemesCard, CallsByModel, ExportButtons } from '../components/aiThemes.jsx';
 import { Welcome } from './OverviewPage.jsx';
-import { Card, EmptyState, ErrorState, LoadingState, SentimentBadge } from '../components/ui.jsx';
+import { Card, EmptyState, ErrorState, LoadingState, SentimentBadge, PageHeader } from '../components/ui.jsx';
 
 function TopicChart({ data }) {
+  const reducedMotion = usePrefersReducedMotion();
   if (data.length === 0) return <EmptyState title="No topics yet" />;
+  const tick = { fontSize: 12, fill: CHART.axis, fontFamily: CHART.font };
   return (
-    <div className="h-72">
+    <div className="h-80">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-          <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#64748b' }} interval={0} />
-          <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-          <Tooltip cursor={{ fill: '#f1f5f9' }} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
-          {['positive', 'neutral', 'negative'].map((s) => (
-            <Bar key={s} dataKey={s} stackId="a" name={SENTIMENT_STYLES[s].label} fill={SENTIMENT_STYLES[s].color} />
+        <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barCategoryGap="28%">
+          <CartesianGrid strokeDasharray="2 4" vertical={false} stroke={CHART.grid} />
+          <XAxis dataKey="label" tick={tick} tickLine={false} axisLine={{ stroke: CHART.grid }} interval={0} />
+          <YAxis allowDecimals={false} tick={tick} tickLine={false} axisLine={false} />
+          <Tooltip {...CHART_TOOLTIP} cursor={{ fill: CHART.cursor }} />
+          <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 13, fontFamily: CHART.font, color: CHART.axis, paddingTop: 8 }} />
+          {['positive', 'neutral', 'negative'].map((s, i, all) => (
+            <Bar
+              key={s}
+              dataKey={s}
+              stackId="a"
+              name={SENTIMENT_STYLES[s].label}
+              fill={SENTIMENT_STYLES[s].color}
+              radius={i === all.length - 1 ? [4, 4, 0, 0] : 0}
+              isAnimationActive={!reducedMotion}
+              animationDuration={600}
+            />
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -54,14 +66,13 @@ export function InsightsPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">AI Insights</h1>
-          <p className="text-sm text-slate-500">Themes, rating agreement, data quality and AI usage for this dataset.</p>
-        </div>
-        <ExportButtons datasetId={selectedId} disabled={isProcessing} />
-      </div>
+    <div className="stagger space-y-6">
+      <PageHeader
+        eyebrow="Beyond the numbers"
+        title="AI Insights"
+        description="Themes, rating agreement, data quality and AI usage for this dataset."
+        action={<ExportButtons datasetId={selectedId} disabled={isProcessing} />}
+      />
 
       <section aria-labelledby="usage-heading" className="space-y-3">
         <h2 id="usage-heading" className="text-sm font-semibold text-slate-900">AI usage &amp; performance</h2>
@@ -96,7 +107,7 @@ export function InsightsPage() {
           {ratingAgreement.mismatchReviews.length === 0 ? (
             <EmptyState title="No mismatches" />
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-200/70">
               {ratingAgreement.mismatchReviews.map((m) => (
                 <li key={m.id} className="flex flex-col gap-1 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-3">
                   <div className="flex shrink-0 items-center gap-2 text-sm sm:w-64">
@@ -122,9 +133,9 @@ export function InsightsPage() {
       <Card title="Data quality" description="How the uploaded file was cleaned before analysis">
         <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {qualityRows.map(([label, value]) => (
-            <div key={label} className="rounded-lg bg-slate-50 px-3 py-2">
+            <div key={label} className="rounded-xl border border-slate-200/70 bg-slate-50 px-4 py-3">
               <dt className="text-xs text-slate-500">{label}</dt>
-              <dd className="text-lg font-semibold tabular-nums text-slate-900">{value}</dd>
+              <dd className="display mt-1 text-2xl tabular-nums text-navy-900">{value}</dd>
             </div>
           ))}
         </dl>

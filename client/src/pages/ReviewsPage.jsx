@@ -6,7 +6,7 @@ import { useReviews } from '../hooks/queries.js';
 import { ISSUE_LABELS, SENTIMENTS, SENTIMENT_STYLES, STATUS_LABELS, TOPICS, TOPIC_LABELS } from '../utils/format.js';
 import { ReviewDrawer } from '../components/ReviewDrawer.jsx';
 import { Welcome } from './OverviewPage.jsx';
-import { Button, Card, EmptyState, ErrorState, LoadingState, RatingStars, SentimentBadge, StatusBadge, TopicChip } from '../components/ui.jsx';
+import { Button, Card, EmptyState, ErrorState, LoadingState, RatingStars, SentimentBadge, StatusBadge, TopicChip, PageHeader } from '../components/ui.jsx';
 
 const FILTER_KEYS = ['search', 'product', 'sentiment', 'topic', 'status', 'needsReply', 'mismatch'];
 
@@ -20,7 +20,7 @@ function Select({ id, label, value, onChange, options }) {
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-2.5 pr-8 text-sm text-slate-700"
+        className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-3 pr-8 text-sm text-slate-800 transition-colors hover:border-navy-300 focus:border-navy-600"
       >
         <option value="">All</option>
         {options.map(([optionValue, optionLabel]) => (
@@ -97,11 +97,12 @@ export function ReviewsPage() {
   const to = data ? Math.min(data.page * data.limit, data.total) : 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">Reviews</h1>
-        <p className="text-sm text-slate-500">Every uploaded row, including skipped and duplicate ones, with its AI analysis.</p>
-      </div>
+    <div className="stagger space-y-6">
+      <PageHeader
+        eyebrow="Every row, every verdict"
+        title="Reviews"
+        description="Every uploaded row, including skipped and duplicate ones, with its AI analysis."
+      />
 
       <Card>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
@@ -110,14 +111,14 @@ export function ReviewsPage() {
               Search
             </label>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" aria-hidden />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" aria-hidden />
               <input
                 id="review-search"
                 type="search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Review text, product, ID…"
-                className="w-full rounded-lg border border-slate-300 py-1.5 pl-8 pr-2.5 text-sm"
+                className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-800 placeholder:text-slate-400 transition-colors hover:border-navy-300 focus:border-navy-600"
               />
             </div>
           </div>
@@ -140,11 +141,11 @@ export function ReviewsPage() {
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" className="size-4 rounded accent-brand-600" checked={filters.needsReply === 'true'} onChange={(e) => update({ needsReply: e.target.checked ? 'true' : '' })} />
+            <input type="checkbox" className="size-4 rounded accent-navy-700" checked={filters.needsReply === 'true'} onChange={(e) => update({ needsReply: e.target.checked ? 'true' : '' })} />
             Needs reply
           </label>
           <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" className="size-4 rounded accent-brand-600" checked={filters.mismatch === 'true'} onChange={(e) => update({ mismatch: e.target.checked ? 'true' : '' })} />
+            <input type="checkbox" className="size-4 rounded accent-navy-700" checked={filters.mismatch === 'true'} onChange={(e) => update({ mismatch: e.target.checked ? 'true' : '' })} />
             Rating mismatch
           </label>
           {activeFilters && (
@@ -169,9 +170,9 @@ export function ReviewsPage() {
           />
         ) : (
           <>
-            <div className="relative -mx-5 -mt-5 overflow-x-auto">
+            <div className="relative -mx-5 -mt-5 sm:-mx-6 sm:-mt-6 overflow-x-auto">
               <table className="min-w-[1100px] w-full text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <thead className="border-b border-slate-200 bg-slate-100/80 text-xs font-semibold text-slate-600">
                   <tr>
                     <th scope="col" className="px-4 py-2.5 font-medium">ID</th>
                     <th scope="col" className="px-4 py-2.5 font-medium">Product</th>
@@ -186,9 +187,9 @@ export function ReviewsPage() {
                     <th scope="col" className="px-4 py-2.5 font-medium"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-200/70">
                   {data.items.map((r) => (
-                    <tr key={r.id} className="align-top hover:bg-slate-50">
+                    <tr key={r.id} className="align-top transition-colors hover:bg-brand-50/70">
                       <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">{r.reviewId}</td>
                       <td className="px-4 py-3 text-slate-700">{r.product}</td>
                       <td className="px-4 py-3"><RatingStars rating={r.rating} raw={r.rawRating} /></td>
@@ -228,7 +229,7 @@ export function ReviewsPage() {
               </p>
               <div className="flex items-center gap-2">
                 <label htmlFor="page-size" className="text-xs text-slate-500">Rows</label>
-                <select id="page-size" value={limit} onChange={(e) => update({ limit: e.target.value })} className="rounded-lg border border-slate-300 py-1 pl-2 pr-7 text-sm">
+                <select id="page-size" value={limit} onChange={(e) => update({ limit: e.target.value })} className="h-9 rounded-lg border border-slate-300 bg-white pl-2.5 pr-7 text-sm">
                   {[10, 25, 50].map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
                 <Button variant="secondary" size="sm" icon={ChevronLeft} disabled={data.page <= 1} onClick={() => update({ page: data.page - 1 })} aria-label="Previous page">

@@ -33,7 +33,7 @@ export function ProcessingPanel({ dataset }) {
     >
       <div className="mb-5">
         <div className="mb-1.5 flex items-center justify-between text-sm">
-          <span className="flex items-center gap-2 font-medium text-slate-700">
+          <span className="flex items-center gap-2 font-semibold text-slate-800">
             {active && <Loader2 className="size-4 animate-spin text-brand-500" aria-hidden />}
             {progress.percentage}% complete
           </span>
@@ -42,22 +42,24 @@ export function ProcessingPanel({ dataset }) {
           </span>
         </div>
         <div
-          className="h-2.5 overflow-hidden rounded-full bg-slate-100"
+          className="relative h-3 overflow-hidden rounded-full bg-slate-200"
           role="progressbar"
           aria-valuenow={progress.percentage}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label="Analysis progress"
         >
-          <div className="h-full rounded-full bg-brand-500 transition-all duration-500" style={{ width: `${progress.percentage}%` }} />
+          <div className="h-full rounded-full bg-navy-700 transition-[width] duration-500 ease-[var(--ease-brand)]" style={{ width: `${progress.percentage}%` }}>
+            {active && <span className="block h-full w-full animate-pulse rounded-full bg-brand-300/30" />}
+          </div>
         </div>
         {active && dataset.live && <LiveBatch live={dataset.live} />}
       </div>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {items.map(([label, value]) => (
-          <div key={label} className="rounded-lg bg-slate-50 px-3 py-2">
-            <dt className="text-xs text-slate-500">{label}</dt>
-            <dd className="text-lg font-semibold tabular-nums text-slate-900">{value}</dd>
+          <div key={label} className="rounded-xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+            <dt className="text-xs font-medium text-slate-500">{label}</dt>
+            <dd className="display mt-1 text-2xl tabular-nums text-navy-900">{value}</dd>
           </div>
         ))}
       </dl>
@@ -81,13 +83,13 @@ export function LiveBatch({ live }) {
   return (
     <div className="mt-3 space-y-2" aria-live="polite">
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
-        <Cpu className="size-3.5 text-brand-500" aria-hidden />
+        <Cpu className="size-3.5 text-navy-500" aria-hidden />
         <span className="font-medium text-slate-800">
           Batch {live.batch} of {live.totalBatches}
         </span>
         <span>· {live.reviewsInBatch} review(s)</span>
         <span>
-          · <code className="rounded bg-slate-100 px-1 py-0.5">{live.model}</code>
+          · <code className="rounded bg-navy-50 px-1.5 py-0.5 font-mono text-navy-700">{live.model}</code>
         </span>
         <span className="tabular-nums">· {elapsed}s</span>
         {elapsed >= 20 && <span className="text-slate-500">(the AI provider is responding slowly)</span>}

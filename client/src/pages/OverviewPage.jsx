@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { ArrowRight, BarChart3, MessageCircleReply, Minus, ScanSearch, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowRight, BarChart3, MessageCircleReply, Minus, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { useDatasetContext } from '../context/DatasetContext.jsx';
 import { useDashboard, useReviews } from '../hooks/queries.js';
 import { formatDateTime, formatDuration, formatPercent, isActiveStatus } from '../utils/format.js';
@@ -9,22 +9,19 @@ import { RatingAgreementCard, SentimentChart, StatCard, ThemeList } from '../com
 import { ReviewDrawer } from '../components/ReviewDrawer.jsx';
 import { ExportButtons } from '../components/aiThemes.jsx';
 import { UploadDropzone } from '../components/UploadDialog.jsx';
+import { Hero } from '../components/Hero.jsx';
 import { Button, Card, EmptyState, ErrorState, LoadingState, SentimentBadge, TopicChip } from '../components/ui.jsx';
 
 export function Welcome() {
   return (
-    <div className="mx-auto max-w-2xl py-6">
-      <div className="mb-6 text-center">
-        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-brand-600 text-white shadow">
-          <ScanSearch className="size-7" aria-hidden />
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Turn reviews into actions</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Upload a CSV of product reviews. ReviewLens cleans it, analyses every unique review with AI and shows what customers love,
-          what they complain about and which reviews need a reply.
-        </p>
-      </div>
-      <Card>
+    <div className="stagger space-y-6">
+      <Hero
+        eyebrow="Review insights for store owners"
+        title="Listen to"
+        highlight="every customer"
+        description="Upload a CSV of product reviews. ReviewLens cleans it, analyses every unique review with AI and shows what customers love, what they complain about and which reviews need a reply."
+      />
+      <Card title="Upload reviews" description="Drop a CSV with review_id, product, rating, date and review_text">
         <UploadDropzone />
       </Card>
     </div>
@@ -42,7 +39,7 @@ function ReplyQueue({ datasetId, live }) {
       description="Generate a suggested response on demand"
       action={
         data?.total > 0 && (
-          <Link to="/reviews?needsReply=true" className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700">
+          <Link to="/reviews?needsReply=true" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-700">
             View all {data.total} <ArrowRight className="size-3" aria-hidden />
           </Link>
         )
@@ -53,20 +50,20 @@ function ReplyQueue({ datasetId, live }) {
       ) : query.isError ? (
         <ErrorState error={query.error} onRetry={query.refetch} />
       ) : data.items.length === 0 ? (
-        <EmptyState icon={MessageCircleReply} title="No reviews need a reply" description="Nice — nothing is waiting for a response." />
+        <EmptyState title="No reviews need a reply" description="Nothing is waiting for a response." />
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-slate-200/70">
           {data.items.map((review) => (
-            <li key={review.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
+            <li key={review.id} className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-500">{review.reviewId}</span>
+                  <span className="font-mono text-xs font-medium text-slate-500">{review.reviewId}</span>
                   <SentimentBadge sentiment={review.sentiment} />
                   {review.topics.map((t) => (
                     <TopicChip key={t} topic={t} />
                   ))}
                 </div>
-                <p className="mt-1 text-sm text-slate-800">{review.summary}</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-900">{review.summary}</p>
                 <p className="text-xs text-slate-500">{review.product}</p>
               </div>
               <Button size="sm" variant={review.suggestedReply ? 'secondary' : 'primary'} icon={MessageCircleReply} onClick={() => setSelected(review)}>
@@ -99,28 +96,27 @@ export function OverviewPage() {
   ].filter(Boolean);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Overview</h1>
-          <p className="text-sm text-slate-500">
-            {dataset.filename} · uploaded {formatDateTime(dataset.createdAt)}
-          </p>
-        </div>
-        {!isActiveStatus(dataset.status) && (
-          <div className="flex flex-col items-end gap-2">
-            <ExportButtons datasetId={dataset.id} />
-            <p className="text-xs text-slate-500">
+    <div className="stagger space-y-6">
+      <Hero
+        compact
+        eyebrow={`Overview · ${dataset.filename}`}
+        title="Understand"
+        highlight="every review"
+        description={`Uploaded ${formatDateTime(dataset.createdAt)}. What customers love, what they complain about, and which reviews need a reply.`}
+        actions={!isActiveStatus(dataset.status) && <ExportButtons datasetId={dataset.id} />}
+        meta={
+          !isActiveStatus(dataset.status) && (
+            <span className="tabular-nums">
               {usage.aiCalls} AI call(s) · {usage.cacheHits} from cache · {formatDuration(usage.processingTimeMs)}
-            </p>
-          </div>
-        )}
-      </div>
+            </span>
+          )
+        }
+      />
 
       {isProcessing && <ProcessingPanel dataset={dataset} />}
       <FailureBanner dataset={dataset} />
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label="Reviews analysed"
           value={summary.analysedReviews}
