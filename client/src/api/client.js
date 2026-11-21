@@ -68,9 +68,16 @@ const unreachableMessage = () =>
     ? `Cannot reach the ReviewLens API at ${API_BASE}. It may be starting up (try again in a minute), offline, or not allowing this site (CORS).`
     : 'Cannot reach the ReviewLens server. Is the backend running?';
 
+/** A web page came back where JSON was expected: the request reached the frontend host, not the API. */
+export const WRONG_HOST_MESSAGE =
+  'The server returned a web page instead of API data, so this app is not connected to the ReviewLens API. ' +
+  'Set VITE_API_BASE_URL to the backend URL and redeploy the frontend.';
+
 async function parseEnvelope(response, url) {
-  const payload = await response.json().catch(() => null);
+  const isHtml = /text\/html/i.test(response.headers.get('content-type') ?? '');
+  const payload = isHtml ? null : await response.json().catch(() => null);
   if (!response.ok) throw errorFromResponse(response.status, payload, url);
+  if (isHtml) throw new ApiError(WRONG_HOST_MESSAGE, { status: response.status, code: 'WRONG_HOST', url });
   if (!payload || !('data' in payload)) throw new ApiError('Unexpected response from the server.', { status: response.status, url });
   return payload.data;
 }

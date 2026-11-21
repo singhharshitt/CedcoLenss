@@ -161,6 +161,7 @@ export function EmptyState({ title, description, action }) {
 export function errorTitle(error) {
   const status = error?.status ?? 0;
   if (error?.code === 'TIMEOUT') return 'The server is taking too long';
+  if (error?.code === 'WRONG_HOST') return 'Not connected to the API';
   if (status === 0) return 'Cannot reach the server';
   if (status === 404) return 'Not found';
   if (status === 400 || status === 422) return 'Invalid request';

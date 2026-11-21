@@ -285,3 +285,15 @@ describe('API base URL and error handling for split deployments', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('frontend host answering instead of the API', () => {
+  it('reports a 200 HTML page (SPA fallback) as "not connected to the API"', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('<!doctype html><html></html>', { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }),
+    );
+    const error = await apiRequest('/api/datasets').catch((e) => e);
+    expect(error).toMatchObject({ status: 200, code: 'WRONG_HOST' });
+    expect(error.message).toMatch(/VITE_API_BASE_URL/);
+    expect(errorTitle(error)).toBe('Not connected to the API');
+  });
+});

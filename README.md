@@ -143,7 +143,7 @@ Click **Upload CSV** and choose the repository's `reviews.csv`, or download it f
 ```bash
 npm test                   # server + client
 npm run test:server        # 93 backend tests (no API key or network needed)
-npm run test:client        # 20 frontend tests
+npm run test:client        # 21 frontend tests
 ```
 
 ### Production build without Docker
@@ -494,7 +494,7 @@ The interface uses an original "sunset over deep water" identity, defined once a
 
 ## Tests
 
-Run `npm test`. Results at the time of writing: **server 93 passed, client 20 passed.** No API key or network access is needed, because the LLM is replaced by a test-only fake provider.
+Run `npm test`. Results at the time of writing: **server 93 passed, client 21 passed.** No API key or network access is needed, because the LLM is replaced by a test-only fake provider.
 
 | File | What it verifies |
 |---|---|
