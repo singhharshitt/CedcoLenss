@@ -30,3 +30,5 @@ export const ReviewListQuery = z.object({
 });
 
 export const ReplyBody = z.object({ regenerate: z.boolean().optional().default(false) }).strict();
+export const EditedReplyBody = z.object({ reply: z.string().max(2000) }).strict();
+export const ThemesBody = z.object({ regenerate: z.boolean().optional().default(true) }).strict();

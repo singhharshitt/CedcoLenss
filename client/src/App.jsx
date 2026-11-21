@@ -6,6 +6,7 @@ import { ReviewsPage } from './pages/ReviewsPage.jsx';
 import { ProductDetailPage, ProductsPage } from './pages/ProductsPage.jsx';
 import { InsightsPage } from './pages/InsightsPage.jsx';
 import { SettingsPage } from './pages/SettingsPage.jsx';
+import { ReportPage } from './pages/ReportPage.jsx';
 
 function NotFoundPage() {
   return (
@@ -20,6 +21,8 @@ function NotFoundPage() {
 export default function App() {
   return (
     <Routes>
+      {/* Printable report: no sidebar / header, opened in its own tab. */}
+      <Route path="report/:datasetId" element={<ReportPage />} />
       <Route element={<AppLayout />}>
         <Route index element={<OverviewPage />} />
         <Route path="reviews" element={<ReviewsPage />} />

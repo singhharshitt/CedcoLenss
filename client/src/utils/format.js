@@ -38,6 +38,8 @@ export const ISSUE_LABELS = {
   missing_product: 'Missing product',
   duplicate_review_id: 'Repeated review ID',
   malformed_row: 'Malformed row',
+  near_duplicate: 'Near-identical to another review (only case / punctuation differ)',
+  possible_duplicate: 'Very similar to another review',
 };
 
 export const isActiveStatus = (status) => status === 'queued' || status === 'processing';

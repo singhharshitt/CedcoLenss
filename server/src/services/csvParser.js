@@ -1,5 +1,49 @@
 import { parse } from 'csv-parse/sync';
 import { hashReviewText } from '../utils/textHash.js';
+import { looseKey, similarityRatio } from '../utils/similarity.js';
+
+/** Reviews at least this similar (same product) are flagged as possible duplicates. */
+export const SIMILARITY_THRESHOLD = 0.85;
+/** Very short texts ("Good", "Nice") are too generic to flag as similar. */
+const MIN_SIMILARITY_LENGTH = 20;
+/** Fuzzy comparison is O(n²) per product; above this many reviews per product it is skipped. */
+const MAX_SIMILARITY_GROUP = 1500;
+const MAX_SIMILARITY_TEXT = 1000;
+
+/**
+ * Flags pairs of canonical reviews of the same product whose loose text is at least
+ * SIMILARITY_THRESHOLD similar (typos, an extra word). They are still analysed
+ * separately; the later row just points at the earlier one.
+ */
+function flagSimilarReviews(rows) {
+  const byProduct = new Map();
+  for (const row of rows) {
+    if (row.status !== 'pending' || row.isDuplicate) continue;
+    const key = looseKey(row.reviewText);
+    if (key.length < MIN_SIMILARITY_LENGTH || key.length > MAX_SIMILARITY_TEXT) continue;
+    if (!byProduct.has(row.product)) byProduct.set(row.product, []);
+    byProduct.get(row.product).push({ row, key });
+  }
+
+  for (const group of byProduct.values()) {
+    if (group.length > MAX_SIMILARITY_GROUP) continue;
+    for (let i = 1; i < group.length; i++) {
+      let best = null;
+      for (let j = 0; j < i; j++) {
+        const a = group[i].key;
+        const b = group[j].key;
+        if (Math.min(a.length, b.length) / Math.max(a.length, b.length) < SIMILARITY_THRESHOLD) continue;
+        const ratio = similarityRatio(a, b, SIMILARITY_THRESHOLD);
+        if (ratio >= SIMILARITY_THRESHOLD && (!best || ratio > best.ratio)) best = { row: group[j].row, ratio };
+      }
+      if (best) {
+        group[i].row.similarToRow = best.row.rowNumber;
+        group[i].row.similarity = Math.round(best.ratio * 100) / 100;
+        group[i].row.dataIssues.push('possible_duplicate');
+      }
+    }
+  }
+}
 
 export const REQUIRED_COLUMNS = ['review_id', 'product', 'rating', 'date', 'review_text'];
 export const UNKNOWN_PRODUCT = 'Unknown product';
@@ -87,6 +131,7 @@ export function parseReviewsCsv(input, { maxRows }) {
   }
 
   const firstRowByHash = new Map();
+  const firstRowByLooseKey = new Map();
   const seenReviewIds = new Set();
 
   const rows = dataRecords.map((record, i) => {
@@ -129,6 +174,8 @@ export function parseReviewsCsv(input, { maxRows }) {
       reviewText,
       isDuplicate: false,
       duplicateOfRow: null,
+      similarToRow: null,
+      similarity: null,
     };
 
     // A record whose cell count differs from the header cannot be trusted:
@@ -145,8 +192,20 @@ export function parseReviewsCsv(input, { maxRows }) {
     }
 
     const textHash = hashReviewText(reviewText);
-    const firstRow = firstRowByHash.get(textHash);
+    let firstRow = firstRowByHash.get(textHash);
     if (firstRow === undefined) firstRowByHash.set(textHash, rowNumber);
+
+    // Near-identical: same words once case and punctuation are ignored ("Great mug" vs "great mug!").
+    // Treated like an exact duplicate (analysed once), but flagged so it stays visible.
+    const loose = looseKey(reviewText);
+    if (firstRow === undefined && loose !== '') {
+      const looseFirst = firstRowByLooseKey.get(loose);
+      if (looseFirst !== undefined) {
+        firstRow = looseFirst;
+        issues.push('near_duplicate');
+      }
+    }
+    if (loose !== '' && !firstRowByLooseKey.has(loose)) firstRowByLooseKey.set(loose, rowNumber);
 
     return {
       ...base,
@@ -158,6 +217,8 @@ export function parseReviewsCsv(input, { maxRows }) {
       duplicateOfRow: firstRow ?? null,
     };
   });
+
+  flagSimilarReviews(rows);
 
   const validRows = rows.filter((r) => r.status === 'pending').length;
   const duplicateRows = rows.filter((r) => r.isDuplicate).length;

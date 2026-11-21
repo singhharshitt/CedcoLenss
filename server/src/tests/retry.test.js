@@ -81,6 +81,21 @@ describe('network / rate-limit retries', () => {
     ]);
   });
 
+  it('ping: one request, no retries, reports latency or the provider error', async () => {
+    const ok = setup([okResponse('OK')]);
+    await expect(ok.provider.ping()).resolves.toMatchObject({ ok: true, error: null });
+    expect(ok.provider.host).toBe('llm.example.test');
+
+    const down = setup([errorResponse(503), okResponse('never reached')]);
+    const result = await down.provider.ping();
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('HTTP 503');
+    expect(down.fetchImpl).toHaveBeenCalledTimes(1);
+
+    const unconfigured = createOpenAiCompatibleProvider({ ...llmConfig, apiKey: '' });
+    await expect(unconfigured.ping()).resolves.toMatchObject({ ok: false });
+  });
+
   it('refuses to run without configuration', async () => {
     const provider = createOpenAiCompatibleProvider({ ...llmConfig, apiKey: '' });
     expect(provider.isConfigured()).toBe(false);

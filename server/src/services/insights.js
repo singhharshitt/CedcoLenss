@@ -109,6 +109,8 @@ export function dataQuality(reviews) {
     invalidRating: withIssue('invalid_rating'),
     invalidOrMissingDate: withIssue('invalid_date') + withIssue('missing_date'),
     duplicates: reviews.filter((r) => r.isDuplicate).length,
+    nearDuplicates: withIssue('near_duplicate'),
+    possibleDuplicates: withIssue('possible_duplicate'),
     failedAnalyses: reviews.filter((r) => r.status === 'analysis_failed' && !r.isDuplicate).length,
   };
 }

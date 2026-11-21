@@ -7,6 +7,7 @@ import { formatDateTime, formatDuration, formatPercent, isActiveStatus } from '.
 import { FailureBanner, ProcessingPanel } from '../components/ProcessingPanel.jsx';
 import { RatingAgreementCard, SentimentChart, StatCard, ThemeList } from '../components/insights.jsx';
 import { ReviewDrawer } from '../components/ReviewDrawer.jsx';
+import { ExportButtons } from '../components/aiThemes.jsx';
 import { UploadDropzone } from '../components/UploadDialog.jsx';
 import { Button, Card, EmptyState, ErrorState, LoadingState, SentimentBadge, TopicChip } from '../components/ui.jsx';
 
@@ -107,9 +108,12 @@ export function OverviewPage() {
           </p>
         </div>
         {!isActiveStatus(dataset.status) && (
-          <p className="text-xs text-slate-500">
-            {usage.aiCalls} AI call(s) · {usage.cacheHits} from cache · {formatDuration(usage.processingTimeMs)}
-          </p>
+          <div className="flex flex-col items-end gap-2">
+            <ExportButtons datasetId={dataset.id} />
+            <p className="text-xs text-slate-500">
+              {usage.aiCalls} AI call(s) · {usage.cacheHits} from cache · {formatDuration(usage.processingTimeMs)}
+            </p>
+          </div>
         )}
       </div>
 

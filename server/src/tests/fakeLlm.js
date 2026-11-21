@@ -47,7 +47,7 @@ export function createFakeLlm({ respond, configured = true } = {}) {
     calls,
     isConfigured: () => configured,
     async complete(request, { onAttempt = () => {} } = {}) {
-      onAttempt();
+      onAttempt({ model: fake.modelName });
       calls.push(request);
       if (respond) return respond(request, calls.length - 1);
       return defaultRespond(request);
@@ -56,8 +56,23 @@ export function createFakeLlm({ respond, configured = true } = {}) {
   return fake;
 }
 
+/** Groups theme input items by their first topic keyword, like a (very) simple model would. */
+function fakeThemes(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const lower = item.summary.toLowerCase();
+    const [topic] = Object.entries(TOPIC_WORDS).find(([, words]) => words.some((w) => lower.includes(w))) ?? ['other'];
+    if (!groups.has(topic)) groups.set(topic, []);
+    groups.get(topic).push(item.ref);
+  }
+  return [...groups].map(([topic, refs]) => ({ theme: `Theme ${topic}`, description: `About ${topic}.`, refs }));
+}
+
 export function defaultRespond(request) {
   const input = JSON.parse(request.user);
+  if (input.complaints && input.praises) {
+    return JSON.stringify({ complaints: fakeThemes(input.complaints), praises: fakeThemes(input.praises) });
+  }
   if (input.review) {
     return JSON.stringify({
       reply: `We're sorry to hear about your experience with the ${input.review.product}. Please contact our support team with your order details so we can look into this for you.`,

@@ -5,6 +5,7 @@ import { useDatasetContext } from '../context/DatasetContext.jsx';
 import { useDashboard } from '../hooks/queries.js';
 import { ISSUE_LABELS, SENTIMENT_STYLES, STATUS_LABELS, formatDuration } from '../utils/format.js';
 import { RatingAgreementCard, StatCard, ThemeList } from '../components/insights.jsx';
+import { AiThemesCard, CallsByModel, ExportButtons } from '../components/aiThemes.jsx';
 import { Welcome } from './OverviewPage.jsx';
 import { Card, EmptyState, ErrorState, LoadingState, SentimentBadge } from '../components/ui.jsx';
 
@@ -44,6 +45,8 @@ export function InsightsPage() {
     [ISSUE_LABELS.empty_review, dataQuality.emptyReviews],
     [ISSUE_LABELS.malformed_row, dataQuality.malformedRows],
     ['Duplicate text (analysed once)', dataQuality.duplicates],
+    ['…of which near-identical', dataQuality.nearDuplicates ?? 0],
+    ['Very similar reviews (flagged)', dataQuality.possibleDuplicates ?? 0],
     [ISSUE_LABELS.missing_rating, dataQuality.missingRating],
     [ISSUE_LABELS.invalid_rating, dataQuality.invalidRating],
     ['Missing / invalid date', dataQuality.invalidOrMissingDate],
@@ -52,9 +55,12 @@ export function InsightsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight text-slate-900">AI Insights</h1>
-        <p className="text-sm text-slate-500">Themes, rating agreement, data quality and AI usage for this dataset.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">AI Insights</h1>
+          <p className="text-sm text-slate-500">Themes, rating agreement, data quality and AI usage for this dataset.</p>
+        </div>
+        <ExportButtons datasetId={selectedId} disabled={isProcessing} />
       </div>
 
       <section aria-labelledby="usage-heading" className="space-y-3">
@@ -68,6 +74,12 @@ export function InsightsPage() {
           <StatCard label="Processing time" value={formatDuration(usage.processingTimeMs)} icon={Clock} hint={avgPerCall ? `~${formatDuration(avgPerCall)} per call · ${STATUS_LABELS[usage.status]}` : STATUS_LABELS[usage.status]} />
         </div>
       </section>
+
+      <Card title="AI calls by model" description="Every HTTP request to an AI provider for this dataset, incl. retries, split by the model that served it (primary or fallback)">
+        <CallsByModel rows={usage.byModel} />
+      </Card>
+
+      <AiThemesCard datasetId={selectedId} isProcessing={isProcessing} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ThemeList kind="complaints" themes={topComplaints} />

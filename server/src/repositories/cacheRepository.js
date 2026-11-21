@@ -10,27 +10,28 @@ import { ReviewAnalysisSchema } from '../validators/analysisSchema.js';
  * model or changing the prompt re-analyses reviews instead of reusing old output.
  */
 export function createCacheRepository(db) {
-  const getStmt = db.prepare(`SELECT analysis_json, model FROM analysis_cache WHERE text_hash = ?`);
+  const getStmt = db.prepare(`SELECT analysis_json, model, produced_by FROM analysis_cache WHERE text_hash = ?`);
   const putStmt = db.prepare(`
-    INSERT INTO analysis_cache (text_hash, analysis_json, model) VALUES (@hash, @json, @model)
+    INSERT INTO analysis_cache (text_hash, analysis_json, model, produced_by) VALUES (@hash, @json, @model, @producedBy)
     ON CONFLICT(text_hash) DO UPDATE SET analysis_json = excluded.analysis_json, model = excluded.model,
-      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`);
+      produced_by = excluded.produced_by, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`);
   const countStmt = db.prepare(`SELECT COUNT(*) AS n FROM analysis_cache`);
 
   return {
+    /** Returns { analysis, producedBy } or null. `producedBy` is the model that really answered (may be null for old rows). */
     get(hash, analyserId) {
       const row = getStmt.get(hash);
       if (!row || row.model !== analyserId) return null;
       try {
         const parsed = ReviewAnalysisSchema.safeParse(JSON.parse(row.analysis_json));
-        return parsed.success ? parsed.data : null;
+        return parsed.success ? { analysis: parsed.data, producedBy: row.produced_by ?? null } : null;
       } catch {
         return null;
       }
     },
-    put(hash, analysis, analyserId) {
+    put(hash, analysis, analyserId, producedBy = null) {
       const valid = ReviewAnalysisSchema.parse(analysis);
-      putStmt.run({ hash, json: JSON.stringify(valid), model: analyserId });
+      putStmt.run({ hash, json: JSON.stringify(valid), model: analyserId, producedBy });
     },
     count: () => countStmt.get().n,
   };

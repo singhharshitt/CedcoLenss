@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { createCsvUpload, sanitizeFilename } from '../middleware/upload.js';
 import { parseReviewsCsv } from '../services/csvParser.js';
 import { buildDashboard, buildProductDetail, buildProductList, toDatasetDto } from '../services/insights.js';
+import { exportFilename, reviewsToCsv } from '../services/exportService.js';
 import { HttpError } from '../utils/httpError.js';
-import { DatasetParams, ProductParams, ReviewListQuery } from '../validators/requestSchemas.js';
+import { DatasetParams, ProductParams, ReviewListQuery, ThemesBody } from '../validators/requestSchemas.js';
 
-/** /api/datasets — upload, status, dashboard, reviews and product analytics. */
-export function createDatasetRoutes({ datasets, reviews, queue, config }) {
+/** /api/datasets — upload, status, dashboard, reviews, product analytics, export and AI themes. */
+export function createDatasetRoutes({ datasets, reviews, usage, themeService, queue, config, expensiveLimit }) {
   const router = Router();
   const upload = createCsvUpload(config.maxUploadBytes);
 
@@ -35,12 +36,37 @@ export function createDatasetRoutes({ datasets, reviews, queue, config }) {
   });
 
   router.get('/:datasetId/status', (req, res) => {
-    res.json({ data: toDatasetDto(loadDataset(req.params)) });
+    const dataset = loadDataset(req.params);
+    res.json({ data: { ...toDatasetDto(dataset), live: queue.getLiveProgress(dataset.id) } });
   });
 
   router.get('/:datasetId/dashboard', (req, res) => {
     const dataset = loadDataset(req.params);
-    res.json({ data: buildDashboard(dataset, reviews.allForDataset(dataset.id)) });
+    const dashboard = buildDashboard(dataset, reviews.allForDataset(dataset.id));
+    res.json({ data: { ...dashboard, usage: { ...dashboard.usage, byModel: usage.forDataset(dataset.id) } } });
+  });
+
+  // Every row with its cleaning flags and AI analysis, as a CSV download.
+  router.get('/:datasetId/export.csv', (req, res) => {
+    const dataset = loadDataset(req.params);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${exportFilename(dataset.filename)}"`);
+    res.send(reviewsToCsv(reviews.allForDataset(dataset.id)));
+  });
+
+  // AI themes (specific complaint / praise groups), generated after processing.
+  router.get('/:datasetId/themes', (req, res) => {
+    const dataset = loadDataset(req.params);
+    res.json({ data: themeService.get(dataset.id) ?? { status: 'none', themes: null } });
+  });
+
+  router.post('/:datasetId/themes', expensiveLimit, (req, res) => {
+    const dataset = loadDataset(req.params);
+    ThemesBody.parse(req.body ?? {});
+    if (['queued', 'processing'].includes(dataset.status)) {
+      throw new HttpError(409, 'BUSY', 'Themes are generated once the dataset has finished processing.');
+    }
+    res.status(202).json({ data: themeService.regenerate(dataset.id) });
   });
 
   router.get('/:datasetId/reviews', (req, res) => {

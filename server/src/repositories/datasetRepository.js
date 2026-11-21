@@ -15,6 +15,9 @@ export function createDatasetRepository(db) {
          processing_time_ms = COALESCE(processing_time_ms, 0) + @elapsedMs,
          finished_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = @id`,
     ),
+    addProcessingTime: db.prepare(
+      `UPDATE datasets SET processing_time_ms = COALESCE(processing_time_ms, 0) + @elapsedMs WHERE id = @id`,
+    ),
     addCounters: db.prepare(
       `UPDATE datasets SET cache_hits = cache_hits + @cacheHits, ai_calls = ai_calls + @aiCalls,
          sent_to_ai = sent_to_ai + @sentToAi WHERE id = @id`,
@@ -41,6 +44,7 @@ export function createDatasetRepository(db) {
     markQueued: (id) => statements.markQueued.run(id),
     finish: (id, { status, errorMessage = null, elapsedMs }) =>
       statements.finish.run({ id, status, errorMessage, elapsedMs: Math.round(elapsedMs) }),
+    addProcessingTime: (id, elapsedMs) => statements.addProcessingTime.run({ id, elapsedMs: Math.round(elapsedMs) }),
     addCounters: (id, { cacheHits = 0, aiCalls = 0, sentToAi = 0 }) =>
       statements.addCounters.run({ id, cacheHits, aiCalls, sentToAi }),
     refreshCounts: (id) => statements.refreshCounts.run({ id }),

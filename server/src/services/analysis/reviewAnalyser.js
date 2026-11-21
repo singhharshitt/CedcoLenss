@@ -63,7 +63,7 @@ export function validateBatchResponse(raw, refs) {
  * job can stop instead of failing every review one by one.
  *
  * @param items  [{ key, product, text }]
- * @returns Map<key, { ok: true, analysis } | { ok: false, reason }>
+ * @returns Map<key, { ok: true, analysis, model } | { ok: false, reason }>  (`model` = the model that answered)
  */
 export async function analyseReviews(items, llm, { onAiCall = () => {} } = {}) {
   const outcomes = new Map();
@@ -74,10 +74,17 @@ export async function analyseReviews(items, llm, { onAiCall = () => {} } = {}) {
     const refs = batch.map((_, i) => `r${i + 1}`);
     const messageItems = batch.map((item, i) => ({ ref: refs[i], product: item.product, text: item.text }));
     let raw;
+    // The last attempt is the one that answered, so its model produced the analysis.
+    let model = llm.modelName ?? null;
     try {
       raw = await llm.complete(
         { system: ANALYSIS_SYSTEM_PROMPT, user: buildAnalysisUserMessage(messageItems), json: true },
-        { onAttempt: onAiCall },
+        {
+          onAttempt: (info = {}) => {
+            if (info.model) model = info.model;
+            onAiCall(info);
+          },
+        },
       );
     } catch (error) {
       if (error instanceof LlmPermanentError || error instanceof LlmNotConfiguredError) throw error;
@@ -86,7 +93,7 @@ export async function analyseReviews(items, llm, { onAiCall = () => {} } = {}) {
       return;
     }
     const validated = validateBatchResponse(raw, refs);
-    batch.forEach((item, i) => outcomes.set(item.key, { ...validated.get(refs[i]), retryable: true }));
+    batch.forEach((item, i) => outcomes.set(item.key, { ...validated.get(refs[i]), model, retryable: true }));
   }
 
   await attempt(items);
@@ -102,6 +109,6 @@ export async function analyseReviews(items, llm, { onAiCall = () => {} } = {}) {
 
   // Drop the internal `retryable` flag from the public result.
   return new Map(
-    [...outcomes].map(([key, { ok, analysis, reason }]) => [key, ok ? { ok, analysis } : { ok, reason }]),
+    [...outcomes].map(([key, { ok, analysis, reason, model }]) => [key, ok ? { ok, analysis, model } : { ok, reason }]),
   );
 }

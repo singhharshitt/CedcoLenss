@@ -7,6 +7,9 @@ import { toQuery } from '../api/reviewlens.js';
 import { validateCsvFile } from '../components/UploadDialog.jsx';
 import { ReplyPanel } from '../components/ReplyPanel.jsx';
 import { ReviewDrawer } from '../components/ReviewDrawer.jsx';
+import { LiveBatch } from '../components/ProcessingPanel.jsx';
+import { CallsByModel, ThemeGroups } from '../components/aiThemes.jsx';
+import { MemoryRouter } from 'react-router';
 
 const jsonResponse = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -140,5 +143,94 @@ describe('review details', () => {
     expect(screen.getByText(/Same text as R012/)).toBeInTheDocument();
     expect(screen.getByText(/Rating mismatch/)).toBeInTheDocument();
     expect(screen.getByText(/Invalid rating/)).toBeInTheDocument();
+  });
+});
+
+describe('LiveBatch', () => {
+  const live = { batch: 3, totalBatches: 6, reviewsInBatch: 5, batchStartedAt: new Date().toISOString(), model: 'gemini-x' };
+
+  it('shows the running batch and model', () => {
+    render(<LiveBatch live={{ ...live, usingFallback: false }} />);
+    expect(screen.getByText('Batch 3 of 6')).toBeInTheDocument();
+    expect(screen.getByText('gemini-x')).toBeInTheDocument();
+    expect(screen.queryByText(/fallback model is being used/)).not.toBeInTheDocument();
+  });
+
+  it('tells the user when the fallback provider is in use', () => {
+    render(<LiveBatch live={{ ...live, model: 'nvidia/nemotron', usingFallback: true }} />);
+    expect(screen.getByText(/fallback model is being used/)).toBeInTheDocument();
+    expect(screen.getByText('nvidia/nemotron')).toBeInTheDocument();
+  });
+});
+
+describe('ReplyPanel editing', () => {
+  it('edits a reply, saves it with PUT and shows it as edited', async () => {
+    const user = userEvent.setup();
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(jsonResponse({ data: { reply: 'Sorry! Please contact us with your order number.', edited: true } }));
+    withQueryClient(<ReplyPanel review={{ ...baseReview, suggestedReply: 'Original AI reply text.' }} />);
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }));
+    const box = screen.getByLabelText('Edit reply');
+    expect(box).toHaveValue('Original AI reply text.');
+    await user.clear(box);
+    await user.type(box, 'Sorry! Please contact us with your order number.');
+    await user.click(screen.getByRole('button', { name: /Save reply/ }));
+
+    await waitFor(() => expect(screen.getByText('Edited by you')).toBeInTheDocument());
+    expect(screen.getByText('Sorry! Please contact us with your order number.')).toBeInTheDocument();
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toBe('/api/reviews/7/reply');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toEqual({ reply: 'Sorry! Please contact us with your order number.' });
+  });
+
+  it('cannot save an empty reply', async () => {
+    const user = userEvent.setup();
+    withQueryClient(<ReplyPanel review={baseReview} />);
+    await user.click(screen.getByRole('button', { name: /Write my own/ }));
+    expect(screen.getByRole('button', { name: /Save reply/ })).toBeDisabled();
+  });
+});
+
+describe('AI theme cards and usage table', () => {
+  it('lists themes with counts, products and review ids', () => {
+    render(
+      <MemoryRouter>
+        <ThemeGroups
+          kind="complaints"
+          themes={[
+            {
+              theme: 'Mug handles break',
+              description: 'Handles come off within a week.',
+              count: 2,
+              reviewIds: ['R008', 'R021'],
+              products: [{ name: 'Ceramic Mug', count: 2 }],
+              evidence: [],
+            },
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Mug handles break')).toBeInTheDocument();
+    expect(screen.getByText('2 reviews')).toBeInTheDocument();
+    expect(screen.getByText('Ceramic Mug (2)')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'R008' })).toHaveAttribute('href', '/reviews?search=R008');
+  });
+
+  it('breaks AI calls down by model', () => {
+    render(
+      <CallsByModel
+        rows={[
+          { model: 'gemini-x', purpose: 'analysis', calls: 6 },
+          { model: 'nvidia/nemotron', purpose: 'analysis', calls: 2 },
+        ]}
+      />,
+    );
+    expect(screen.getByText('gemini-x')).toBeInTheDocument();
+    expect(screen.getByText('nvidia/nemotron')).toBeInTheDocument();
+    expect(screen.getByText('75%')).toBeInTheDocument();
+    expect(screen.getByText('25%')).toBeInTheDocument();
   });
 });

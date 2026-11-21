@@ -24,7 +24,7 @@ export function isLlmConfigured(llmConfig) {
  * which vendor it talks to:
  *   isConfigured(): boolean
  *   modelName: string
- *   complete({ system, user, json }, { onAttempt }) => Promise<string>
+ *   complete({ system, user, json }, { onAttempt({ model }) }) => Promise<string>
  *
  * Network/rate-limit retries with exponential backoff live here. Validating
  * the *content* of the answer is the caller's job.
@@ -32,7 +32,7 @@ export function isLlmConfigured(llmConfig) {
 export function createOpenAiCompatibleProvider(llmConfig, { fetchImpl = fetch, sleep, random } = {}) {
   const configured = isLlmConfigured(llmConfig);
 
-  async function requestOnce({ system, user, json }) {
+  async function requestOnce({ system, user, json }, { timeoutMs = llmConfig.timeoutMs } = {}) {
     let response;
     try {
       response = await fetchImpl(`${llmConfig.baseUrl}/chat/completions`, {
@@ -50,10 +50,10 @@ export function createOpenAiCompatibleProvider(llmConfig, { fetchImpl = fetch, s
           ],
           ...(json ? { response_format: { type: 'json_object' } } : {}),
         }),
-        signal: AbortSignal.timeout(llmConfig.timeoutMs),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
-      const reason = error?.name === 'TimeoutError' ? `timed out after ${llmConfig.timeoutMs} ms` : error?.message;
+      const reason = error?.name === 'TimeoutError' ? `timed out after ${timeoutMs} ms` : error?.message;
       throw new LlmTransientError(`LLM request failed: ${reason}`);
     }
 
@@ -76,15 +76,42 @@ export function createOpenAiCompatibleProvider(llmConfig, { fetchImpl = fetch, s
     return typeof content === 'string' ? content : '';
   }
 
+  let host = null;
+  try {
+    host = new URL(llmConfig.baseUrl).host;
+  } catch {
+    // Invalid or empty base URL: the provider reports as not configured / unreachable.
+  }
+
   return {
     modelName: llmConfig.model,
+    host,
     isConfigured: () => configured,
+
+    /**
+     * Connection test: ONE tiny request, no retries, short timeout.
+     * Resolves to { ok, latencyMs, error } and never throws.
+     */
+    async ping({ timeoutMs = 20000 } = {}) {
+      if (!configured) return { ok: false, latencyMs: null, error: 'Not configured (missing base URL, model or API key).' };
+      const started = Date.now();
+      try {
+        await requestOnce(
+          { system: 'You are a health check. Reply with the single word OK.', user: 'OK?', json: false },
+          { timeoutMs: Math.min(timeoutMs, llmConfig.timeoutMs) },
+        );
+        return { ok: true, latencyMs: Date.now() - started, error: null };
+      } catch (error) {
+        return { ok: false, latencyMs: Date.now() - started, error: error.message.slice(0, 300) };
+      }
+    },
 
     async complete(request, { onAttempt = () => {} } = {}) {
       if (!configured) throw new LlmNotConfiguredError();
       return retryWithBackoff(
         () => {
-          onAttempt();
+          // Tells the caller which model this HTTP request goes to (matters behind the fallback wrapper).
+          onAttempt({ model: llmConfig.model });
           return requestOnce(request);
         },
         {

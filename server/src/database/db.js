@@ -72,6 +72,36 @@ const MIGRATIONS = [
     updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
   );
   `,
+
+  /* v2: model provenance, per-model usage, editable replies, near-duplicates, AI themes */ `
+  -- The model that actually produced each analysis (primary or fallback).
+  ALTER TABLE reviews ADD COLUMN analysis_model TEXT;
+  -- 1 when the store owner edited the suggested reply by hand.
+  ALTER TABLE reviews ADD COLUMN reply_edited INTEGER NOT NULL DEFAULT 0 CHECK (reply_edited IN (0,1));
+  -- Very similar (but not identical) review in the same product, analysed separately.
+  ALTER TABLE reviews ADD COLUMN similar_review_id INTEGER REFERENCES reviews(id);
+  ALTER TABLE reviews ADD COLUMN similarity REAL;
+  -- Which model produced a cache entry (analysis_cache.model is the cache key: primary model + prompt version).
+  ALTER TABLE analysis_cache ADD COLUMN produced_by TEXT;
+
+  CREATE TABLE IF NOT EXISTS llm_usage (
+    dataset_id INTEGER NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    model      TEXT    NOT NULL,
+    purpose    TEXT    NOT NULL CHECK (purpose IN ('analysis','reply','themes')),
+    calls      INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (dataset_id, model, purpose)
+  );
+
+  CREATE TABLE IF NOT EXISTS dataset_themes (
+    dataset_id    INTEGER PRIMARY KEY REFERENCES datasets(id) ON DELETE CASCADE,
+    status        TEXT NOT NULL CHECK (status IN ('generating','ready','failed')),
+    themes_json   TEXT,
+    input_hash    TEXT,
+    model         TEXT,
+    error_message TEXT,
+    updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  );
+  `,
 ];
 
 /** Opens (and creates/migrates) the SQLite database. Use ':memory:' in tests. */

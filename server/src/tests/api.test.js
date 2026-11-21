@@ -5,15 +5,21 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { REPO_ROOT } from '../config/env.js';
 import { openDatabase } from '../database/db.js';
 import { createApp } from '../app.js';
-import { createFakeLlm } from './fakeLlm.js';
+import { createFakeLlm, defaultRespond } from './fakeLlm.js';
 
 const CSV = fs.readFileSync(path.join(REPO_ROOT, 'reviews.csv'));
 const silentLogger = { error() {}, warn() {}, log() {} };
-const testConfig = { batchSize: 5, maxUploadBytes: 1024 * 1024, maxCsvRows: 1000, corsOrigins: ['http://localhost:5173'] };
+const testConfig = {
+  batchSize: 5,
+  maxUploadBytes: 1024 * 1024,
+  maxCsvRows: 1000,
+  corsOrigins: ['http://localhost:5173'],
+  autoThemes: false,
+};
 
-function setup(llm = createFakeLlm()) {
+function setup(llm = createFakeLlm(), configOverrides = {}) {
   const db = openDatabase(':memory:');
-  const { app, queue } = createApp({ db, llm, config: testConfig, logger: silentLogger });
+  const { app, queue } = createApp({ db, llm, config: { ...testConfig, ...configOverrides }, logger: silentLogger });
   return { app, queue, llm, db };
 }
 
@@ -211,5 +217,44 @@ describe('error handling', () => {
     const res = await request(app).get('/api/health');
     expect(res.body.data).toMatchObject({ status: 'ok', database: 'ok', llm: { configured: true } });
     expect(JSON.stringify(res.body)).not.toMatch(/key/i);
+  });
+});
+
+describe('live progress and connection test', () => {
+  it('exposes the running batch and counts AI calls as they start', async () => {
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const llm = createFakeLlm({
+      respond: async (req, index) => {
+        if (index === 0) await gate;
+        return defaultRespond(req);
+      },
+    });
+    const ctx = setup(llm);
+    const id = (await request(ctx.app).post('/api/datasets').attach('file', CSV, 'reviews.csv')).body.data.dataset.id;
+
+    // Wait until the first batch request has started.
+    while (llm.calls.length === 0) await new Promise((r) => setTimeout(r, 5));
+    const during = (await request(ctx.app).get(`/api/datasets/${id}/status`)).body.data;
+    expect(during.live).toMatchObject({ batch: 1, totalBatches: 6, reviewsInBatch: 5, model: 'fake-model', usingFallback: false });
+    expect(during.counts.aiCalls).toBe(1);
+
+    release();
+    await ctx.queue.onIdle();
+    const after = (await request(ctx.app).get(`/api/datasets/${id}/status`)).body.data;
+    expect(after.live).toBeNull();
+    expect(after.counts.aiCalls).toBe(6);
+  });
+
+  it('POST /api/llm/test pings each provider and never leaks the key', async () => {
+    const llm = { ...createFakeLlm(), host: 'llm.example.test', ping: async () => ({ ok: true, latencyMs: 12, error: null }) };
+    const ctx = setup(llm);
+    const res = await request(ctx.app).post('/api/llm/test').send({});
+    expect(res.status).toBe(200);
+    expect(res.body.data.results).toEqual([
+      { role: 'primary', model: 'fake-model', host: 'llm.example.test', ok: true, latencyMs: 12, error: null },
+    ]);
   });
 });

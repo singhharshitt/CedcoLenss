@@ -1,4 +1,5 @@
-import { AlertTriangle, Loader2, RotateCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, ArrowRightLeft, Cpu, Loader2, RotateCw } from 'lucide-react';
 import { useRetryFailed } from '../hooks/queries.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { formatDuration, isActiveStatus } from '../utils/format.js';
@@ -17,6 +18,7 @@ export function ProcessingPanel({ dataset }) {
     ['Sent for AI analysis', counts.sentToAi],
     ['Analysed', counts.analysed],
     ['Analysis failed', counts.failed],
+    ['AI calls (incl. retries)', counts.aiCalls],
   ];
 
   return (
@@ -49,6 +51,7 @@ export function ProcessingPanel({ dataset }) {
         >
           <div className="h-full rounded-full bg-brand-500 transition-all duration-500" style={{ width: `${progress.percentage}%` }} />
         </div>
+        {active && dataset.live && <LiveBatch live={dataset.live} />}
       </div>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {items.map(([label, value]) => (
@@ -59,6 +62,43 @@ export function ProcessingPanel({ dataset }) {
         ))}
       </dl>
     </Card>
+  );
+}
+
+/** Seconds since `iso`, re-rendered every second so the UI never looks frozen during a slow batch. */
+function useElapsedSeconds(iso) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 1000));
+}
+
+/** The batch the server is analysing right now: which one, which model, how long it has been running. */
+export function LiveBatch({ live }) {
+  const elapsed = useElapsedSeconds(live.batchStartedAt);
+  return (
+    <div className="mt-3 space-y-2" aria-live="polite">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+        <Cpu className="size-3.5 text-brand-500" aria-hidden />
+        <span className="font-medium text-slate-800">
+          Batch {live.batch} of {live.totalBatches}
+        </span>
+        <span>· {live.reviewsInBatch} review(s)</span>
+        <span>
+          · <code className="rounded bg-slate-100 px-1 py-0.5">{live.model}</code>
+        </span>
+        <span className="tabular-nums">· {elapsed}s</span>
+        {elapsed >= 20 && <span className="text-slate-500">(the AI provider is responding slowly)</span>}
+      </p>
+      {live.usingFallback && (
+        <p className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-900">
+          <ArrowRightLeft className="size-3.5 shrink-0" aria-hidden />
+          The primary AI provider failed or timed out, so the fallback model is being used.
+        </p>
+      )}
+    </div>
   );
 }
 

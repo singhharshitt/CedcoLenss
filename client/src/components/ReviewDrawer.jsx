@@ -94,6 +94,15 @@ export function ReviewDrawer({ review, onClose }) {
                   <div className="col-span-2">
                     <Field label="Source">{SOURCE_LABELS[review.analysisSource] ?? '—'}</Field>
                   </div>
+                  <div className="col-span-2">
+                    <Field label="AI model">
+                      {review.analysisModel ? (
+                        <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">{review.analysisModel}</code>
+                      ) : (
+                        <span className="text-slate-500">Not recorded (analysed before model tracking)</span>
+                      )}
+                    </Field>
+                  </div>
                 </dl>
                 {review.ratingMismatch && (
                   <p className="flex gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
@@ -116,10 +125,21 @@ export function ReviewDrawer({ review, onClose }) {
                 <ul className="space-y-1 text-sm text-slate-600">
                   {review.isDuplicate && (
                     <li className="flex items-center gap-2">
-                      <CopyIcon className="size-4 text-slate-400" aria-hidden /> Same text as {review.duplicateOf}; counted once in statistics.
+                      <CopyIcon className="size-4 text-slate-400" aria-hidden />
+                      {review.dataIssues.includes('near_duplicate')
+                        ? `Near-identical to ${review.duplicateOf} (only case or punctuation differ); analysed once and counted once.`
+                        : `Same text as ${review.duplicateOf}; counted once in statistics.`}
                     </li>
                   )}
-                  {review.dataIssues.map((issue) => (
+                  {review.similarTo && (
+                    <li className="flex items-center gap-2">
+                      <CopyIcon className="size-4 text-amber-500" aria-hidden />
+                      {Math.round((review.similarity ?? 0) * 100)}% similar to {review.similarTo}; possibly the same customer posting twice. Still analysed and counted separately.
+                    </li>
+                  )}
+                  {review.dataIssues
+                    .filter((issue) => issue !== 'near_duplicate' && issue !== 'possible_duplicate')
+                    .map((issue) => (
                     <li key={issue} className="flex items-center gap-2">
                       <AlertTriangle className="size-4 text-amber-500" aria-hidden />
                       {ISSUE_LABELS[issue] ?? issue}

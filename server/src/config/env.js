@@ -31,6 +31,16 @@ const EnvSchema = z.object({
   LLM_RETRY_BASE_DELAY_MS: intFromEnv(1000, 0, 60000),
   LLM_RETRY_MAX_DELAY_MS: intFromEnv(30000, 0, 300000),
   ANALYSIS_BATCH_SIZE: intFromEnv(5, 1, 20),
+
+  // Optional fallback provider (defaults to NVIDIA's OpenAI-compatible API).
+  LLM_API_KEY2: z.string().default(''),
+  LLM_BASE_URL2: z.string().default('https://integrate.api.nvidia.com/v1'),
+  LLM_MODEL2: z.string().default('nvidia/nemotron-3-ultra-550b-a55b'),
+  LLM_TIMEOUT_MS2: intFromEnv(60000, 1000, 300000),
+  LLM_FALLBACK_COOLDOWN_MS: intFromEnv(60000, 0, 3600000),
+
+  // How long a graceful shutdown waits for the AI batch in flight to finish and be saved.
+  SHUTDOWN_TIMEOUT_MS: intFromEnv(30000, 0, 300000),
 });
 
 const parsed = EnvSchema.safeParse(process.env);
@@ -58,4 +68,15 @@ export const config = {
     retryBaseDelayMs: env.LLM_RETRY_BASE_DELAY_MS,
     retryMaxDelayMs: env.LLM_RETRY_MAX_DELAY_MS,
   },
+  llmFallback: {
+    apiKey: env.LLM_API_KEY2.trim(),
+    baseUrl: env.LLM_BASE_URL2.trim().replace(/\/+$/, ''),
+    model: env.LLM_MODEL2.trim(),
+    timeoutMs: env.LLM_TIMEOUT_MS2,
+    maxRetries: env.LLM_MAX_RETRIES,
+    retryBaseDelayMs: env.LLM_RETRY_BASE_DELAY_MS,
+    retryMaxDelayMs: env.LLM_RETRY_MAX_DELAY_MS,
+  },
+  llmFallbackCooldownMs: env.LLM_FALLBACK_COOLDOWN_MS,
+  shutdownTimeoutMs: env.SHUTDOWN_TIMEOUT_MS,
 };

@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { REPLY_SYSTEM_PROMPT, buildReplyUserMessage } from './analysis/prompts.js';
 import { HttpError } from '../utils/httpError.js';
 
+/** A reply typed or edited by the store owner. */
+export const EditedReplySchema = z.string().trim().min(1, 'reply must not be empty').max(2000, 'reply is too long');
+
 const ReplySchema = z
   .object({ reply: z.string().trim().min(20, 'reply is too short').max(1200, 'reply is too long') })
   .strict();
@@ -21,8 +24,20 @@ function parseReply(raw) {
  * Reuses a stored reply unless `regenerate` is true. Output is validated and
  * retried once if invalid, like analyses.
  */
-export function createReplyService({ reviews, llm }) {
+export function createReplyService({ reviews, llm, usage }) {
   return {
+    /** Saves a reply the store owner edited by hand (no AI call). */
+    saveEdited(reviewDbId, text) {
+      const review = reviews.getById(reviewDbId);
+      if (!review) throw new HttpError(404, 'NOT_FOUND', 'Review not found.');
+      if (review.status !== 'analysed' || !review.needsReply) {
+        throw new HttpError(409, 'REPLY_NOT_NEEDED', 'Replies can only be saved for analysed reviews that need a reply.');
+      }
+      const reply = EditedReplySchema.parse(text);
+      reviews.setSuggestedReply(review.id, reply, { edited: true });
+      return { reply, edited: true };
+    },
+
     async generate(reviewDbId, { regenerate = false } = {}) {
       const review = reviews.getById(reviewDbId);
       if (!review) throw new HttpError(404, 'NOT_FOUND', 'Review not found.');
@@ -30,7 +45,9 @@ export function createReplyService({ reviews, llm }) {
         throw new HttpError(409, 'NOT_ANALYSED', 'This review has not been analysed, so no reply can be generated.');
       }
       if (!review.needsReply) throw new HttpError(409, 'REPLY_NOT_NEEDED', 'This review is not marked as needing a reply.');
-      if (review.suggestedReply && !regenerate) return { reply: review.suggestedReply, reused: true };
+      if (review.suggestedReply && !regenerate) {
+        return { reply: review.suggestedReply, reused: true, edited: review.replyEdited };
+      }
       if (!llm.isConfigured()) {
         throw new HttpError(503, 'LLM_NOT_CONFIGURED', 'The AI provider is not configured on the server. See .env.example.');
       }
@@ -49,15 +66,17 @@ export function createReplyService({ reviews, llm }) {
       for (let attempt = 0; attempt < 2; attempt++) {
         let raw;
         try {
-          raw = await llm.complete(request);
+          raw = await llm.complete(request, {
+            onAttempt: ({ model } = {}) => usage?.add(review.datasetId, model ?? llm.modelName, 'reply'),
+          });
         } catch (error) {
           console.error('[reply] LLM error:', error.message);
           throw new HttpError(502, 'LLM_ERROR', 'The AI provider could not generate a reply right now. Please try again.');
         }
         const reply = parseReply(raw);
         if (reply) {
-          reviews.setSuggestedReply(review.id, reply);
-          return { reply, reused: false };
+          reviews.setSuggestedReply(review.id, reply, { edited: false });
+          return { reply, reused: false, edited: false };
         }
       }
       throw new HttpError(502, 'INVALID_AI_RESPONSE', 'The AI returned an invalid reply twice. Please try again.');

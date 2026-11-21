@@ -66,6 +66,38 @@ export function useGenerateReply() {
   });
 }
 
+/** Saves a reply edited by hand (no AI call). */
+export function useSaveReply() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ reviewId, reply }) => api.saveReply(reviewId, reply),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['product'] });
+    },
+  });
+}
+
+/** AI themes; polled while they are being generated or the dataset is still processing. */
+export const useThemes = (id, live) =>
+  useQuery({
+    queryKey: ['themes', id],
+    queryFn: () => api.themes(id),
+    enabled: id != null,
+    refetchInterval: (query) => (live || query.state.data?.status === 'generating' ? 2000 : false),
+  });
+
+export function useRegenerateThemes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (datasetId) => api.regenerateThemes(datasetId),
+    onSuccess: (data, datasetId) => queryClient.setQueryData(['themes', datasetId], data),
+  });
+}
+
+/** Sends one tiny real request to each configured AI provider. */
+export const useTestLlm = () => useMutation({ mutationFn: api.testLlm });
+
 export function useRetryFailed() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -79,7 +111,7 @@ export function useRetryFailed() {
 
 /** Refreshes every dataset-scoped query (after processing finishes or a new upload). */
 export function invalidateDataset(queryClient, id) {
-  for (const key of ['status', 'dashboard', 'reviews', 'products', 'product']) {
+  for (const key of ['status', 'dashboard', 'reviews', 'products', 'product', 'themes']) {
     queryClient.invalidateQueries({ queryKey: [key, id] });
   }
   queryClient.invalidateQueries({ queryKey: ['datasets'] });

@@ -11,7 +11,10 @@ export const MISMATCH_SQL = `CASE
     OR (r.rating >= 4 AND r.sentiment = 'positive') THEN 0
   ELSE 1 END`;
 
-const SELECT_COLUMNS = `r.*, c.review_id AS canonical_review_ref, ${MISMATCH_SQL} AS rating_mismatch`;
+const SELECT_COLUMNS = `r.*, c.review_id AS canonical_review_ref, s.review_id AS similar_review_ref,
+  ${MISMATCH_SQL} AS rating_mismatch`;
+const FROM_REVIEWS = `reviews r LEFT JOIN reviews c ON c.id = r.canonical_review_id
+  LEFT JOIN reviews s ON s.id = r.similar_review_id`;
 
 /** Converts a DB row into the shape returned by the API. */
 export function toReviewDto(row) {
@@ -36,8 +39,12 @@ export function toReviewDto(row) {
     summary: row.summary,
     needsReply: row.needs_reply == null ? null : row.needs_reply === 1,
     analysisSource: row.analysis_source,
+    analysisModel: row.analysis_model ?? null,
     failureReason: row.failure_reason,
     suggestedReply: row.suggested_reply,
+    replyEdited: row.reply_edited === 1,
+    similarTo: row.similar_review_ref ?? null,
+    similarity: row.similarity ?? null,
     ratingMismatch: row.rating_mismatch == null ? null : row.rating_mismatch === 1,
   };
 }
@@ -56,13 +63,15 @@ export function createReviewRepository(db) {
 
   const saveAnalysisStmt = db.prepare(`
     UPDATE reviews SET status = 'analysed', sentiment = @sentiment, topics = @topics, summary = @summary,
-      needs_reply = @needsReply, analysis_source = @source, failure_reason = NULL
+      needs_reply = @needsReply, analysis_source = @source, analysis_model = @model, failure_reason = NULL
     WHERE id = @id`);
 
   const markFailedStmt = db.prepare(`
     UPDATE reviews SET status = 'analysis_failed', failure_reason = @reason, sentiment = NULL, topics = NULL,
-      summary = NULL, needs_reply = NULL, analysis_source = NULL
+      summary = NULL, needs_reply = NULL, analysis_source = NULL, analysis_model = NULL
     WHERE id = @id`);
+
+  const setSimilarStmt = db.prepare(`UPDATE reviews SET similar_review_id = @similarId, similarity = @similarity WHERE id = @id`);
 
   // Copies the canonical row's outcome onto its duplicates so every uploaded row stays inspectable.
   const syncDuplicatesStmt = db.prepare(`
@@ -70,6 +79,7 @@ export function createReviewRepository(db) {
       status = c.status,
       sentiment = c.sentiment, topics = c.topics, summary = c.summary, needs_reply = c.needs_reply,
       analysis_source = CASE WHEN c.status = 'analysed' THEN 'duplicate' ELSE NULL END,
+      analysis_model = c.analysis_model,
       failure_reason = c.failure_reason
     FROM reviews AS c
     WHERE d.dataset_id = ? AND d.is_duplicate = 1 AND d.canonical_review_id = c.id
@@ -83,16 +93,13 @@ export function createReviewRepository(db) {
     UPDATE reviews SET status = 'pending', failure_reason = NULL
     WHERE dataset_id = ? AND status = 'analysis_failed'`);
 
-  const getStmt = db.prepare(`
-    SELECT ${SELECT_COLUMNS} FROM reviews r LEFT JOIN reviews c ON c.id = r.canonical_review_id WHERE r.id = ?`);
+  const getStmt = db.prepare(`SELECT ${SELECT_COLUMNS} FROM ${FROM_REVIEWS} WHERE r.id = ?`);
 
-  const allStmt = db.prepare(`
-    SELECT ${SELECT_COLUMNS} FROM reviews r LEFT JOIN reviews c ON c.id = r.canonical_review_id
-    WHERE r.dataset_id = ? ORDER BY r.row_number`);
+  const allStmt = db.prepare(`SELECT ${SELECT_COLUMNS} FROM ${FROM_REVIEWS} WHERE r.dataset_id = ? ORDER BY r.row_number`);
 
   const productsStmt = db.prepare(`SELECT DISTINCT product FROM reviews WHERE dataset_id = ? ORDER BY product`);
 
-  const setReplyStmt = db.prepare(`UPDATE reviews SET suggested_reply = ? WHERE id = ?`);
+  const setReplyStmt = db.prepare(`UPDATE reviews SET suggested_reply = @reply, reply_edited = @edited WHERE id = @id`);
 
   return {
     /** Inserts parsed CSV rows in one transaction and links duplicates to their canonical row. */
@@ -118,11 +125,20 @@ export function createReviewRepository(db) {
         });
         idByRowNumber.set(row.rowNumber, Number(result.lastInsertRowid));
       }
+      // Near-duplicates point at an earlier row, so all ids exist by now.
+      for (const row of rows) {
+        if (row.similarToRow == null) continue;
+        setSimilarStmt.run({
+          id: idByRowNumber.get(row.rowNumber),
+          similarId: idByRowNumber.get(row.similarToRow),
+          similarity: row.similarity,
+        });
+      }
     }),
 
     pendingCanonical: (datasetId) => pendingCanonicalStmt.all(datasetId),
 
-    saveAnalysis: (id, analysis, source) =>
+    saveAnalysis: (id, analysis, source, model = null) =>
       saveAnalysisStmt.run({
         id,
         sentiment: analysis.sentiment,
@@ -130,6 +146,7 @@ export function createReviewRepository(db) {
         summary: analysis.summary,
         needsReply: analysis.needs_reply ? 1 : 0,
         source,
+        model,
       }),
 
     markFailed: (id, reason) => markFailedStmt.run({ id, reason: String(reason).slice(0, 500) }),
@@ -142,7 +159,8 @@ export function createReviewRepository(db) {
     },
     allForDataset: (datasetId) => allStmt.all(datasetId).map(toReviewDto),
     productNames: (datasetId) => productsStmt.all(datasetId).map((r) => r.product),
-    setSuggestedReply: (id, reply) => setReplyStmt.run(reply, id),
+    /** `edited` = true when the store owner wrote/changed the text by hand. */
+    setSuggestedReply: (id, reply, { edited = false } = {}) => setReplyStmt.run({ id, reply, edited: edited ? 1 : 0 }),
 
     /**
      * Filtered + paginated listing.
@@ -188,7 +206,7 @@ export function createReviewRepository(db) {
       const offset = (filters.page - 1) * filters.limit;
       const rows = db
         .prepare(
-          `SELECT ${SELECT_COLUMNS} FROM reviews r LEFT JOIN reviews c ON c.id = r.canonical_review_id
+          `SELECT ${SELECT_COLUMNS} FROM ${FROM_REVIEWS}
            WHERE ${whereSql} ORDER BY r.row_number LIMIT @limit OFFSET @offset`,
         )
         .all({ ...params, limit: filters.limit, offset });
