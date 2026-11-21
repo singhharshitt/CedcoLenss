@@ -1,0 +1,8 @@
+review_id,product,rating,date,review_text
+M001,Running Shoes,5,2026-10-10,"Very comfortable on long walks."
+M002,Running Shoes,1,2026-10-11,"The sole separated after one week."
+M003,Coffee Grinder,4,2026-10-12,"Consistent grind and easy to adjust."
+M004,Coffee Grinder,2,2026-10-13,"Too noisy for a small kitchen."
+M005,Phone Stand,5,2026-10-14,"Stable stand and a useful viewing angle."
+M006,Phone Stand,3,2026-10-15,"It holds the phone, but the hinge is stiff."
+M007,Phone Stand,,2026-10-16,"Good value despite the missing rating."
